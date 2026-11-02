@@ -13,7 +13,7 @@ import {
 } from "recharts";
 
 interface IDailyScannedBarcodeChartProps {
-  scannedBarcodes: ScannedBarcode[];
+  scannedBarcodes: Pick<ScannedBarcode, "created_date">[];
 }
 
 const DailyScannedBarcodeChart = ({

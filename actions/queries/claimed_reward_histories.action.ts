@@ -36,10 +36,10 @@ export const claimReward = authSafeActionClient
   .action(
     async ({
       parsedInput: { user_id, reward_id, email, shipping_address },
-      ctx: { lineUser },
+      ctx: { user },
     }): Promise<ServerActionResponse<null>> => {
       try {
-        if (lineUser && lineUser.sub !== user_id)
+        if (user.id !== user_id)
           throw new Error(`คุณไม่มีสิทธิในการรับรางวัลแทนคนอื่น`);
 
         const { data: userTotalScore, error: userTotalScoreError } =
@@ -163,9 +163,9 @@ export const claimReward = authSafeActionClient
 
 export const getClaimedRewardHistories = authSafeActionClient
   .schema(GetClaimedRewardHistoriesParamsSchema.optional())
-  .action(async ({ ctx: { lineUser }, parsedInput: filter }) => {
+  .action(async ({ ctx: { user }, parsedInput: filter }) => {
     try {
-      await preventUnauthorizedUser(lineUser);
+      await preventUnauthorizedUser(user);
 
       const query = supabaseAdminClient
         .from(TABLE_NAME)
@@ -238,8 +238,8 @@ export const getClaimedRewardHistoriesByUserId = safeActionClient
   );
 
 export const getTotalNumberOfClaimedRewards = authSafeActionClient.action(
-  async ({ ctx: { lineUser } }) => {
-    await preventUnauthorizedUser(lineUser);
+  async ({ ctx: { user } }) => {
+    await preventUnauthorizedUser(user);
 
     const { count: totalClaimedRewards, error } = await supabaseAdminClient
       .from(TABLE_NAME)
@@ -258,9 +258,9 @@ export const updateClaimedRewardStatus = authSafeActionClient
       status: z.nativeEnum(CLAIMED_REWARD_HISTORY_STATUS),
     })
   )
-  .action(async ({ parsedInput: { id, status }, ctx: { lineUser } }) => {
+  .action(async ({ parsedInput: { id, status }, ctx: { user } }) => {
     try {
-      await preventUnauthorizedUser(lineUser);
+      await preventUnauthorizedUser(user);
 
       // การยกเลิกต้องคืนแต้ม/stock ด้วย จึงต้องใช้ cancelClaimedReward เท่านั้น
       if (status === CLAIMED_REWARD_HISTORY_STATUS.CANCELLED)
@@ -308,10 +308,10 @@ export const cancelClaimedReward = authSafeActionClient
   .action(
     async ({
       parsedInput: { id },
-      ctx: { lineUser },
+      ctx: { user },
     }): Promise<ServerActionResponse<number>> => {
       try {
-        await preventUnauthorizedUser(lineUser);
+        await preventUnauthorizedUser(user);
 
         const { data: history, error: historyError } = await supabaseAdminClient
           .from(TABLE_NAME)
@@ -392,20 +392,6 @@ export const cancelClaimedReward = authSafeActionClient
 /* ========= */
 
 
-export const getTotalNumberOfClaimedRewardsNew =
-  async () => {
-
-    const { count: totalClaimedRewards, error } = await supabaseAdminClient
-      .from(TABLE_NAME)
-      .select("*", { count: "exact" });
-
-    if (error) throw new Error(error.message);
-
-    return totalClaimedRewards ?? 0;
-  };
-
-
-
 export const getClaimedRewardHistoriesNew = async (
   filter?: z.infer<typeof GetClaimedRewardHistoriesParamsSchema>
 ): Promise<ServerActionResponse<any[]>> => {
@@ -456,57 +442,3 @@ export const getClaimedRewardHistoriesNew = async (
 };
 
 
-export const getClaimedRewardHistoriesUnzline = async (
-  filter?: z.infer<typeof GetClaimedRewardHistoriesParamsSchema>
-): Promise<{ data: any[]; count: number }> => {
-
-  try {
-
-
-    const query = supabaseAdminClient
-      .from(TABLE_NAME)
-      .select(" id  ,reward_id  ,quantity  ,user_id  ,created_at   ,email ,shipping_address ,status  , rewards(*), users(*)")
-      .order("created_at", { ascending: false });
-
-    if (filter) {
-      query.gte(
-        "created_at",
-        new Date(filter.year, filter.month - 1, 1).toISOString()
-      );
-
-      query.lt(
-        "created_at",
-        new Date(filter.year, filter.month, 1).toISOString()
-      );
-    }
-
-    if (!filter) {
-      const now = new Date();
-
-      // ทำให้ now เป็นเวลาไทย (UTC+7) เพื่อเอา year/month ให้ถูกกับ “เดือนในไทย”
-      const th = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-
-      const year = th.getUTCFullYear();
-      const monthIdx = th.getUTCMonth(); // 0-11
-
-      // ช่วงเดือน (ใช้ UTC boundary เพื่อตัดปัญหา toISOString)
-      const start = new Date(Date.UTC(year, monthIdx, 1)).toISOString();
-      const end = new Date(Date.UTC(year, monthIdx + 1, 1)).toISOString();
-
-      query.gte("created_at", start).lt("created_at", end);
-    }
-
-
-
-    const { data, error } = await query;
-
-    if (error) throw new Error(error.message);
-
-    return { data: data ?? [], count: data?.length ?? 0 };
-  } catch (error: any) {
-    console.error(
-      `ล้มเหลวระหว่างการดึงข้อมูลประวัติการแลกของรางวัล -> ${error.message}`
-    );
-    throw new Error(`ล้มเหลวระหว่างการดึงข้อมูลประวัติการแลกของรางวัล`);
-  }
-};

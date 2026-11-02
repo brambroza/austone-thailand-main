@@ -42,7 +42,7 @@ export default function PointsPage() {
 
   const {
     data: productScoreOption,
-    isFetching: isLoadingProductScoreOption,
+    isLoading: isLoadingProductScoreOption,
     isError,
   } = useFetchProductScoreOption();
 

@@ -22,18 +22,3 @@ export const uploadRewardImage = safeActionClient
       throw new Error(`ล้มเหลวระหว่างการอัพโหลดรูปภาพรางวัล`);
     }
   });
-
-export const getRewardImageById = safeActionClient
-  .schema(
-    z.object({
-      id: z.number(),
-    })
-  )
-  .action(async ({ parsedInput: { id } }) => {
-    try {
-      return rewardStorageService.getImageUrlById(id);
-    } catch (error: any) {
-      console.error(`ล้มเหลวระหว่างการดึงรูปภาพรางวัล -> ${error.message}`);
-      throw new Error(`ล้มเหลวระหว่างการดึงรูปภาพรางวัล`);
-    }
-  });

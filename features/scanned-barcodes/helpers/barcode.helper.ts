@@ -72,7 +72,9 @@ export function isBarcodeEnabled({
   );
 }
 
-export function formatDailyScannedBarcodeData(data: ScannedBarcode[]) {
+export function formatDailyScannedBarcodeData(
+  data: Pick<ScannedBarcode, "created_date">[]
+) {
   let dailyScannedBarcode = {
     อาทิตย์: 0,
     จันทร์: 0,

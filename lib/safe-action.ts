@@ -45,6 +45,7 @@ export const authSafeActionClient = createSafeActionClient({
 
 
  */
+import { LINE_SESSION_COOKIE_NAME, verifyLineSession } from "@/lib/line-session";
 import axios from "axios";
 import { createSafeActionClient } from "next-safe-action";
 import { cookies } from "next/headers";
@@ -69,6 +70,26 @@ export const authSafeActionClient = createSafeActionClient({
   },
 }).use(async ({ next, clientInput }) => {
   const cookieStore = cookies();
+
+  // 0) session ของระบบ ไม่ต้องเรียก LINE ทุกครั้ง
+  const sessionUser = verifyLineSession(
+    cookieStore.get(LINE_SESSION_COOKIE_NAME)?.value
+  );
+
+  if (sessionUser) {
+    return next({
+      ctx: {
+        user: {
+          id: sessionUser.sub,
+          provider: "line",
+          email: sessionUser.email ?? null,
+          name: sessionUser.name ?? null,
+        },
+        lineUser: sessionUser,
+        emailUser: null,
+      },
+    });
+  }
 
   // 1) LINE Login
   const lineTokenId = cookieStore.get(LINE_AUTH_TOKEN_COOKIE_NAME)?.value;

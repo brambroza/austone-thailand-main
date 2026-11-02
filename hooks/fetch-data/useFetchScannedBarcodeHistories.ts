@@ -1,5 +1,4 @@
-import { getScannedBarcodeHistoriesByUserId } from "@/actions/queries/scanned-barcodes.action";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
+import { apiGet } from "@/lib/utils/api-client.util";
 import { ServerActionResponse } from "@/models/api.model";
 import { WithProductScoreOption } from "@/models/product-score-option.model";
 import {
@@ -20,9 +19,12 @@ export function useFetchScannedBarcodeHistoriesByUserId(
       params.filter?.to,
     ],
     queryFn: async () => {
-      const { data, isError, error } = await getScannedBarcodeHistoriesByUserId(
-        params
-      );
+      const { data, isError, error } = await apiGet<
+        ServerActionResponse<WithUser<WithProductScoreOption<ScannedBarcode>>[]>
+      >(`/api/users/${encodeURIComponent(params.user_id)}/scanned-barcodes`, {
+        from: params.filter?.from,
+        to: params.filter?.to,
+      });
 
       if (isError) {
         throw new Error(error);

@@ -3,21 +3,10 @@ import { UserProtectedRoute } from "@/components/protected/UserProtectedRoute";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { useUser } from "@/hooks/useUser";
 import NotificationPopup from "@/components/NotificationPopup";
-import { ReactNode, useEffect, useState } from "react";
-import PreventLinePage from "@/components/prevent-line-page";
+import { ReactNode } from "react";
 
 export default function UserLayout({ children }: { children: ReactNode }) {
   const useUserValue = useUser();
-
-  const [isLineBrowser, setIsLineBrowser] = useState(false);
-
-  useEffect(() => {
-    setIsLineBrowser(navigator.userAgent.includes("Line"));
-  }, []);
-
-  if (isLineBrowser) {
-    return <PreventLinePage />;
-  }
 
   return (
     <QueryProvider>

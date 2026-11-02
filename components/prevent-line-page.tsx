@@ -1,11 +1,18 @@
 "use client";
+import {
+  buildExternalBrowserUrl,
+  buildOpenInChromeUrl,
+} from "@/lib/utils/open-in-browser.util";
 
 const PreventLinePage = () => {
   function openChrome() {
-    const origin = window.location.origin;
+    window.location.assign(
+      buildOpenInChromeUrl(window.location.href, navigator.userAgent)
+    );
+  }
 
-    const [, url] = origin.split("://");
-    window.location.assign(`googlechrome://${url}`);
+  function openExternalBrowser() {
+    window.location.assign(buildExternalBrowserUrl(window.location.href));
   }
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
@@ -44,6 +51,12 @@ const PreventLinePage = () => {
             onClick={openChrome}
           >
             เปิดด้วย Chrome
+          </button>
+          <button
+            className="bg-white border border-gray-300 text-black px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={openExternalBrowser}
+          >
+            เปิดด้วยเบราว์เซอร์อื่น
           </button>
         </div>
       </div>

@@ -11,6 +11,8 @@ import { StatusCodes } from "http-status-codes";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+const LOGIN_FAILED_MESSAGE = "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
 const Page = () => {
   const searchParams = useSearchParams();
 
@@ -42,6 +44,7 @@ const Page = () => {
           const { id_token, status } = await retrieveLineIdToken(code);
 
           if (status === StatusCodes.INTERNAL_SERVER_ERROR) {
+            setErrorMessage(LOGIN_FAILED_MESSAGE);
             return;
           }
 
@@ -70,6 +73,7 @@ const Page = () => {
       } catch (error) {
         console.log(error);
         Alert.error("เข้าสู่ระบบไม่สำเร็จ");
+        setErrorMessage(LOGIN_FAILED_MESSAGE);
       } finally {
         setIsLoading(false);
       }

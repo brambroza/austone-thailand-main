@@ -8,7 +8,7 @@ type Props = {
 };
 
 const TotalPoint = ({ userId }: Props) => {
-  const { data: totalScore, isFetching: isLoadingTotalScore } =
+  const { data: totalScore, isLoading: isLoadingTotalScore } =
     useFetchUserTotalScoreById(userId);
 
   if (isLoadingTotalScore) return <Loader label="กำลังดึงข้อมูลคะแนนสะสม" />;

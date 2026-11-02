@@ -1,6 +1,6 @@
 "use client";
 
-import { getRewardImageById } from "@/actions/storage/reward-storage.action";
+import { getRewardImageUrl } from "@/lib/utils/reward-image.util";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -11,11 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Reward } from "./types";
 
 interface RewardRowProps {
@@ -26,21 +25,11 @@ interface RewardRowProps {
 }
 
 function RewardRow({ reward, onEdit, onToggleStatus, onToggleAlertEnable }: RewardRowProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchImage = async () => {
-      try {
-        const result = await getRewardImageById({ id: reward.id });
-        const url = SafeActionUtil.getData<string>(result);
-        setImageUrl(url);
-      } catch (error) {
-        console.error(`Failed to fetch image for reward ${reward.id}:`, error);
-      }
-    };
-
-    fetchImage();
-  }, [reward.id]);
+  // admin ต้องเห็นรูปล่าสุดหลังอัปโหลด จึงไม่ใช้รูปจาก cache
+  const imageUrl = useMemo(
+    () => getRewardImageUrl(reward.id, Date.now()),
+    [reward.id]
+  );
 
   return (
     <TableRow className="hover:bg-muted/50">

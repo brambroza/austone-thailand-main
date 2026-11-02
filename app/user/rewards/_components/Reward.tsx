@@ -1,13 +1,12 @@
 "use client";
 
 import { claimReward } from "@/actions/queries/claimed_reward_histories.action";
-import { getRewardImageById } from "@/actions/storage/reward-storage.action";
+import { getRewardImageUrl } from "@/lib/utils/reward-image.util";
 import { Alert } from "@/components/ui/alert-message-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
 import type { Reward as RewardType } from "@/models/reward.model";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ClaimRewardModal from "./ClaimRewardModal";
 
 interface RewardProps {
@@ -23,24 +22,11 @@ export default function Reward({
   totalUserScores,
   onRefreshData,
 }: RewardProps) {
-  const [image, setImage] = useState<string | null>(null);
+  const image = getRewardImageUrl(reward.id);
 
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
 
   const [isClaiming, setIsClaiming] = useState(false);
-
-  useEffect(() => {
-    async function loadImage() {
-      try {
-        const result = await getRewardImageById({ id: reward.id });
-        const imageUrl = SafeActionUtil.getData<string>(result);
-        setImage(imageUrl);
-      } catch (error) {
-        console.error(`Failed to load image for reward ${reward.id}:`, error);
-      }
-    }
-    loadImage();
-  }, [reward.id]);
 
   async function handleClaimReward(email: string, shippingAddress: string) {
     try {
@@ -81,6 +67,7 @@ export default function Reward({
                 <img
                   src={image}
                   alt={reward.title}
+                  loading="lazy"
                   className="w-full h-full object-contain rounded-lg"
                 />
               ) : (

@@ -32,7 +32,7 @@ export default function RewardsPage() {
 
   const {
     data: rewards,
-    isFetching: isLoadingRewards,
+    isLoading: isLoadingRewards,
     refetch: refetchRewards,
   } = useFetchAvailableRewards();
 

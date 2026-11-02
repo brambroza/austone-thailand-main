@@ -10,11 +10,11 @@ const TABLE_NAME = "rewards";
 export const addNewRewardx = authSafeActionClient
   .schema(RewardSchema.omit({ id: true, updated_at: true, created_at: true }))
   .action(
-    async ({ parsedInput: rewardInfo, ctx: { lineUser } }): Promise<Reward> => {
+    async ({ parsedInput: rewardInfo, ctx: { user } }): Promise<Reward> => {
       try {
 
 
-        await preventUnauthorizedUser(lineUser);
+        await preventUnauthorizedUser(user);
 
         const { data, error } = await supabaseAdminClient
           .from(TABLE_NAME)
@@ -85,10 +85,10 @@ export const updateReward = authSafeActionClient
     })
   )
   .action(
-    async ({ parsedInput: rewardInfo, ctx: { lineUser } }): Promise<Reward> => {
+    async ({ parsedInput: rewardInfo, ctx: { user } }): Promise<Reward> => {
       try {
 
-        await preventUnauthorizedUser(lineUser);
+        await preventUnauthorizedUser(user);
 
 
         const now = new Date();
@@ -119,9 +119,9 @@ export const updateReward = authSafeActionClient
   );
 
 export const getRewards = authSafeActionClient.action(
-  async ({ ctx: { lineUser } }) => {
+  async ({ ctx: { user } }) => {
     try {
-      await preventUnauthorizedUser(lineUser);
+      await preventUnauthorizedUser(user);
 
       const { data, error } = await supabaseAdminClient
         .from(TABLE_NAME)

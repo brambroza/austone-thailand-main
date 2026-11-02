@@ -1,14 +1,12 @@
 "use server";
 
-import { LineUser, User, UserInfoView } from "@/models/user.model";
+import { UserInfoView } from "@/models/user.model";
 import { cookies, headers } from "next/headers";
 import { fetchUserInfo } from "./queries/users.action";
 import { SafeActionUtil } from "@/lib/utils/safe-action.util";
 import { ServerActionResponse } from "@/models/api.model";
 import { getLineUser } from "./auth.action";
 import { supabaseAdminClient } from "@/lib/supabase";
-
-type AuthUser = LineUser | User ;;
 
 export async function setCookie(key: string, value: string) {
   try {
@@ -24,17 +22,16 @@ export async function getRequestOriginUrl() {
 }
 
 
-export async function preventUnauthorizedUser(lineUser: AuthUser) {
+/**
+ * ตรวจว่าผู้ใช้เป็น admin ทั้งผู้ใช้ LINE และ email
+ *
+ * @param user - ผู้ใช้จาก ctx ของ authSafeActionClient
+ * @throws Error เมื่อไม่พบผู้ใช้หรือไม่ใช่ admin
+ */
+export async function preventUnauthorizedUser(user: { id: string }) {
+  if (!user?.id) throw new Error("คุณไม่มีสิทธิในการเข้าถึง");
 
- 
-
-  if (!lineUser) return;
-
-  const userId = "sub" in lineUser ? lineUser.sub : lineUser.user_id;
-
-
-  const userInfoActionResult = await fetchUserInfo({ user_id: userId });
-  /*   const userInfoActionResult = await fetchUserInfo({ user_id: lineUser.sub }); */
+  const userInfoActionResult = await fetchUserInfo({ user_id: user.id });
 
   const { data: userInfo } =
     SafeActionUtil.getData<ServerActionResponse<UserInfoView>>(

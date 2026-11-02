@@ -40,8 +40,9 @@ export function useUser() {
  */
 
 import { useEffect, useState } from "react";
-import { getLineTokenId, getLineUser } from "@/actions/auth.action";
+import { apiGet } from "@/lib/utils/api-client.util";
 import { getSupabaseCurrentUser } from "@/lib/utils/supabase.util";
+import { LineUser } from "@/models/user.model";
 
 interface SupabaseSession {
   access_token: string;
@@ -67,16 +68,9 @@ export function useUser() {
         }
 
         // ถ้าไม่มี user จาก Supabase → ตรวจสอบจาก LINE
-        const lineIdToken = await getLineTokenId();
-        if (lineIdToken) {
-          const info = await getLineUser();
-          setUser(info);
-          setIsLoadingUser(false);
-          return;
-        }
-
-        // ❌ ไม่มี token ทั้งคู่
-        setUser(null);
+        // คืน null เมื่อไม่มี token ของ LINE
+        const lineUser = await apiGet<LineUser | null>("/api/auth/line-user");
+        setUser(lineUser);
       } catch (err) {
         console.error("useUser error:", err);
         setUser(null);

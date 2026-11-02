@@ -1,6 +1,5 @@
-import { getClaimedRewardHistoriesByUserId } from "@/actions/queries/claimed_reward_histories.action";
 import { Alert } from "@/components/ui/alert-message-dialog";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
+import { apiGet } from "@/lib/utils/api-client.util";
 import { ServerActionResponse } from "@/models/api.model";
 import {
   ClaimedRewardHistory,
@@ -15,18 +14,14 @@ export function useFetchClaimedRewardHistoriesByUserId(
     queryKey: ["claimed-reward-histories", params.user_id, params.filter],
     queryFn: async () => {
       try {
-        const result = await getClaimedRewardHistoriesByUserId({
-          user_id: params.user_id,
-          filter: params.filter ?? undefined,
-        });
-
         const {
           data: userClaimedRewardHistories,
           isError,
           error,
-        } = SafeActionUtil.getData<
-          ServerActionResponse<ClaimedRewardHistory[]>
-        >(result);
+        } = await apiGet<ServerActionResponse<ClaimedRewardHistory[]>>(
+          `/api/users/${encodeURIComponent(params.user_id)}/claimed-rewards`,
+          { from: params.filter?.from, to: params.filter?.to }
+        );
 
         if (isError) throw new Error(error);
 

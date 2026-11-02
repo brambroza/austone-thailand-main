@@ -1,6 +1,13 @@
-import { getUserPointsExpiringSoon, getUserTotalScoreById } from "@/actions/queries/score.action";
 import { Alert } from "@/components/ui/alert-message-dialog";
+import { apiGet } from "@/lib/utils/api-client.util";
+import { ServerActionResponse } from "@/models/api.model";
 import { useQuery } from "@tanstack/react-query";
+
+type ExpiringPoints = {
+  expired_date: string;
+  total_score_soon_expire: number;
+  expire_message: string;
+};
 
 export function useFetchUserTotalScoreById(user_id: string) {
   const query = useQuery({
@@ -11,7 +18,9 @@ export function useFetchUserTotalScoreById(user_id: string) {
           data: scores,
           isError,
           error,
-        } = await getUserTotalScoreById({ user_id });
+        } = await apiGet<ServerActionResponse<number>>(
+          `/api/users/${encodeURIComponent(user_id)}/score`
+        );
         if (isError) throw new Error(error);
         return scores;
       } catch (error: any) {
@@ -36,7 +45,9 @@ export function useFetchUserExpiringSoonById(user_id: string) {
           data: scores,
           isError,
           error,
-        } = await getUserPointsExpiringSoon({ user_id });
+        } = await apiGet<ServerActionResponse<ExpiringPoints | null>>(
+          `/api/users/${encodeURIComponent(user_id)}/expiring-points`
+        );
         if (isError) throw new Error(error);
         return scores;
       } catch (error: any) {

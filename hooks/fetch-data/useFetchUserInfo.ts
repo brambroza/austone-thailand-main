@@ -1,13 +1,15 @@
-import { fetchUserInfo } from "@/actions/queries/users.action";
+import { apiGet } from "@/lib/utils/api-client.util";
+import { ServerActionResponse } from "@/models/api.model";
+import { UserInfoView } from "@/models/user.model";
 import { useQuery } from "@tanstack/react-query";
 
 export function useFetchUserInfo(userId: string) {
   return useQuery({
     queryKey: ["fetch user info", userId],
     queryFn: async () => {
-      const actionResult = await fetchUserInfo({ user_id: userId });
-
-      const data = actionResult?.data;
+      const data = await apiGet<ServerActionResponse<UserInfoView> | null>(
+        `/api/users/${encodeURIComponent(userId)}`
+      );
 
       if (!data) return null;
 

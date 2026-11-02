@@ -1,5 +1,11 @@
 "use server";
 import { LINE_CLIENT_ID } from "@/config/env.config";
+import {
+  LINE_SESSION_COOKIE_NAME,
+  LINE_SESSION_MAX_AGE_SECONDS,
+  createLineSession,
+  verifyLineSession,
+} from "@/lib/line-session";
 import { joinLineOAuthScopes } from "@/lib/utils/auth.util";
 import { getLineResponseErrorMessage } from "@/lib/utils/line.util";
 import { ServerActionResponse } from "@/models/api.model";
@@ -20,6 +26,13 @@ export async function getLineTokenId() {
 
 export async function getLineUser(): Promise<LineUser | null> {
   try {
+    // session ของระบบไม่ต้องเรียก LINE และไม่หมดอายุตาม id token
+    const sessionUser = verifyLineSession(
+      cookies().get(LINE_SESSION_COOKIE_NAME)?.value
+    );
+
+    if (sessionUser) return sessionUser;
+
     const tokenId = await getLineTokenId();
 
     if (tokenId) {
@@ -38,9 +51,14 @@ export async function getLineUser(): Promise<LineUser | null> {
 
 export async function signOutLineUser() {
   try {
-    const tokenId = cookies().get(LINE_AUTH_TOKEN_COOKIE_NAME);
+    const cookieStore = cookies();
 
-    if (tokenId) await lineUserSignOut();
+    if (
+      cookieStore.has(LINE_AUTH_TOKEN_COOKIE_NAME) ||
+      cookieStore.has(LINE_SESSION_COOKIE_NAME)
+    ) {
+      await lineUserSignOut();
+    }
   } catch (error: any) {
     console.error(
       `[ERROR] : ล้มเหลวระหว่างการออกจากระบบด้วย Line -> ${error.message}`
@@ -52,7 +70,18 @@ export async function signOutLineUser() {
 export async function signInLineUser(lineIdToken: string) {
   if (!lineIdToken) throw new Error("Line ID token is required");
 
+  // ยืนยันกับ LINE ก่อน เพราะ token มาจากฝั่ง client
+  const { data: lineUser } = await getLineUserProfile(lineIdToken);
+
   setCookie(LINE_AUTH_TOKEN_COOKIE_NAME, lineIdToken);
+
+  cookies().set(LINE_SESSION_COOKIE_NAME, createLineSession(lineUser), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: LINE_SESSION_MAX_AGE_SECONDS,
+  });
 }
 
 export async function generateLineOAuthUrl(
@@ -137,6 +166,7 @@ export async function getLineUserProfile(idToken: any): Promise<{
 export async function lineUserSignOut() {
   try {
     cookies().delete(LINE_AUTH_TOKEN_COOKIE_NAME);
+    cookies().delete(LINE_SESSION_COOKIE_NAME);
   } catch (error: any) {
     console.error(getLineResponseErrorMessage(error));
     throw new Error("ล้มเหลวระหว่างการออกจากระบบด้วย Line");

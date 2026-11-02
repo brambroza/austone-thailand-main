@@ -35,7 +35,7 @@ const DailyClaimedRewards = () => {
 
   const {
     data: claimedRewardHistories,
-    isFetching: isFetchingRewardHistories,
+    isLoading: isFetchingRewardHistories,
   } = useFetchClaimedRewardHistories({
     month: selectedMonth,
     year: selectedYear,

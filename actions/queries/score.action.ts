@@ -5,6 +5,7 @@ import { UserScore } from "@/models/score.model";
 import { getLineUser } from "../auth.action";
 import { preventUnauthenticatedUser, preventUnauthorizedUser } from "../util.action";
 import { User } from "@/models/user.model";
+import { requireAdminSession } from "@/lib/route-auth";
 
 const TABLE_NAME = "user_points_view";
 const SCANNED_BARCODE_TABLE = "scanned_barcodes";
@@ -101,12 +102,13 @@ export async function getTotalUserScores(): Promise<
   }
 }
 
-// TODO : AUthorize this action
 export async function transferUserScores(
   targetUserId: User["user_id"],
   sourceUserId: User["user_id"]
 ): Promise<ServerActionResponse<null>> {
   try {
+    await requireAdminSession();
+
     const { error } = await supabaseAdminClient
       .from(SCANNED_BARCODE_TABLE)
       .update({ user_id: targetUserId })
@@ -133,49 +135,6 @@ export async function transferUserScores(
 }
 
  
-
-export async function getTotalUserScoresNew(): Promise<ServerActionResponse<number>> {
-  try {
-    // ✅ Query เฉพาะคะแนนที่ยังไม่ใช้ และยังไม่หมดอายุ
-    const { data: userPoints, error } = await supabaseAdminClient
-      .from(TABLE_NAME)
-      .select("score")
-      .is("used_at", null)
-      .gte("expired_date", new Date().toISOString());
-
-    if (error) {
-      console.error(
-        `[ERROR] getTotalUserScores: ดึงข้อมูลคะแนนสะสมล้มเหลว sssssss-> ${error.message}`
-      );
-      return {
-        data: 0,
-        isError: true,
-        error: "ล้มเหลวระหว่างการดึงข้อมูลคะแนนสะสม",
-      };
-    }
-
-    // ✅ รวมคะแนนทั้งหมด (รองรับ null / empty)
-    const totalScores = (userPoints ?? []).reduce(
-      (acc, curr) => acc + (curr.score ?? 0),
-      0
-    );
-
-    return {
-      data: totalScores,
-      isError: false,
-      error: "",
-    };
-  } catch (error: any) {
-    console.error(`[EXCEPTION] getTotalUserScores -> ${error.message}`);
-    return {
-      data: 0,
-      isError: true,
-      error: "ล้มเหลวระหว่างการดึงข้อมูลคะแนนสะสม",
-    };
-  }
-}
-
-
 
 export async function getUserPointsExpiringSoon({
   user_id,

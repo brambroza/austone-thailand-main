@@ -70,10 +70,10 @@ export const updateUser = async ({
 };
 
 export const fetchAllUsers = authSafeActionClient.action(
-  async ({ ctx: { lineUser } }): Promise<ServerActionResponse<User[]>> => {
+  async ({ ctx: { user } }): Promise<ServerActionResponse<User[]>> => {
     try {
 
-      await preventUnauthorizedUser(lineUser);
+      await preventUnauthorizedUser(user);
 
       const { data, error } = await supabaseAdminClient
         .from(TABLE_NAME)
@@ -94,40 +94,6 @@ export const fetchAllUsers = authSafeActionClient.action(
     }
   }
 );
-
-
-export const fetchUserInfolist = async (): Promise<
-  ServerActionResponse<UserInfoView[]>
-> => {
-  try {
-    const { data, error } = await supabaseAdminClient
-      .from("user_info_view")
-      .select("*");
-
-    if (error) {
-      console.error("[ERROR] Fetch user_info_view failed:", error.message);
-      return {
-        data: null,
-        isError: true,
-        error: error.message,
-      };
-    }
-
-    return {
-      data,
-      isError: false,
-      error: "",
-    };
-  } catch (err: any) {
-    console.error("[EXCEPTION] fetchUserInfolist:", err);
-    return {
-      data: null,
-      isError: true,
-      error: "เกิดข้อผิดพลาดในการดึงข้อมูลผู้ใช้งาน",
-    };
-  }
-};
-
 
 
 export const fetchUserScorelist = async (): Promise<
@@ -166,9 +132,9 @@ export const fetchUserScorelist = async (): Promise<
 
 
 export const fetchUserInfos = authSafeActionClient.action(
-  async ({ ctx: { lineUser } }) => {
+  async ({ ctx: { user } }) => {
 
-    await preventUnauthorizedUser(lineUser);
+    await preventUnauthorizedUser(user);
 
     const { data, error } = await supabaseAdminClient
       .from("user_info_view")
@@ -232,9 +198,9 @@ export async function doesUserExist(userId: string) {
 
 export const deleteUser = authSafeActionClient
   .schema(UserSchema.pick({ user_id: true }))
-  .action(async ({ parsedInput: { user_id }, ctx: { lineUser } }) => {
+  .action(async ({ parsedInput: { user_id }, ctx: { user } }) => {
     try {
-      await preventUnauthorizedUser(lineUser);
+      await preventUnauthorizedUser(user);
 
 
       const { data, error } = await supabaseAdminClient
@@ -247,15 +213,15 @@ export const deleteUser = authSafeActionClient
       return data;
     } catch (error: any) {
       console.error(
-        `[ERROR] : ล้มเหลวระหว่างการลบผู้ใช้งาน -> ${error.message} (parameters: ${lineUser.sub})`
+        `[ERROR] : ล้มเหลวระหว่างการลบผู้ใช้งาน -> ${error.message} (parameters: ${user.id})`
       );
       throw new Error("ล้มเหลวระหว่างการลบผู้ใช้งาน");
     }
   });
 
 export const getTotalUsersNumber = authSafeActionClient.action(
-  async ({ ctx: { lineUser } }) => {
-    await preventUnauthorizedUser(lineUser);
+  async ({ ctx: { user } }) => {
+    await preventUnauthorizedUser(user);
 
     const { count, error } = await supabaseAdminClient
       .from(TABLE_NAME)
@@ -269,9 +235,9 @@ export const getTotalUsersNumber = authSafeActionClient.action(
 
 export const getUsersGenderProportion = authSafeActionClient.action(
   async ({
-    ctx: { lineUser },
+    ctx: { user },
   }): Promise<ServerActionResponse<{ male: number; female: number }>> => {
-    await preventUnauthorizedUser(lineUser);
+    await preventUnauthorizedUser(user);
 
     const { data: maleData, error: maleError } = await supabaseAdminClient
       .from(TABLE_NAME)
@@ -299,34 +265,3 @@ export const getUsersGenderProportion = authSafeActionClient.action(
 );
 
 
-/* ========== */
-
-export const getTotalUsersNumberNew = async (): Promise<ServerActionResponse<number>> => {
-  try {
-    const { count, error } = await supabaseAdminClient
-      .from(TABLE_NAME)
-      .select("*", { count: "exact", head: true }); // ✅ head:true ทำให้ query เร็วขึ้น (ไม่โหลดข้อมูลจริง)
-
-    if (error) {
-      console.error(`[ERROR] getTotalUsersNumber: ${error.message}`);
-      return {
-        data: 0,
-        isError: true,
-        error: error.message,
-      };
-    }
-
-    return {
-      data: count ?? 0,
-      isError: false,
-      error: "",
-    };
-  } catch (err: any) {
-    console.error("[EXCEPTION] getTotalUsersNumber:", err);
-    return {
-      data: 0,
-      isError: true,
-      error: "เกิดข้อผิดพลาดในการดึงจำนวนผู้ใช้ทั้งหมด",
-    };
-  }
-};

@@ -4,8 +4,13 @@ import { Bell, Gift, AlertTriangle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useUserProtectedRoute } from "./protected/UserProtectedRoute";
 import { getUserId } from "@/lib/utils/user.util";
-import { getUserPointsExpiringSoon } from "@/actions/queries/score.action";
-import { getRewardAvailableNew } from "@/actions/queries/reward.action";
+import { apiGet } from "@/lib/utils/api-client.util";
+import { ServerActionResponse } from "@/models/api.model";
+
+type ExpiringPoints = {
+    total_score_soon_expire: number;
+    expire_message: string;
+};
 
 export default function NotificationPopup() {
     const [isVisible, setIsVisible] = useState(false);
@@ -27,14 +32,14 @@ export default function NotificationPopup() {
             if (!user) return;
 
             try {
-                // ดึงคะแนน
-                const { data: expiringPoints } = await getUserPointsExpiringSoon({
-                    user_id: getUserId(user),
-                });
+                // ดึงคะแนนและ reward ใหม่พร้อมกัน
+                const [{ data: expiringPoints }, { data: newRewards }] = await Promise.all([
+                    apiGet<ServerActionResponse<ExpiringPoints>>(
+                        `/api/users/${encodeURIComponent(getUserId(user))}/expiring-points`
+                    ),
+                    apiGet<ServerActionResponse<any[]>>("/api/rewards/alerts"),
+                ]);
                 setScores(expiringPoints ?? null);
-
-                // ดึง reward ใหม่
-                const { data: newRewards } = await getRewardAvailableNew();
                 setRewards(newRewards ?? []);
 
                 // ✅ เงื่อนไขการแสดง popup

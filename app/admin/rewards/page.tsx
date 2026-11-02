@@ -1,11 +1,10 @@
 "use client";
-import { getRewardImageById } from "@/actions/storage/reward-storage.action";
+import { getRewardImageUrl } from "@/lib/utils/reward-image.util";
 import { Alert } from "@/components/ui/alert-message-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { useFetchRewards } from "@/hooks/fetch-data/useFetchRewards";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { RewardsForm } from "./_components/rewards-form";
@@ -59,9 +58,7 @@ export default function RewardsPage() {
     try {
       setIsLoading(true);
 
-      const result = await getRewardImageById({ id: reward.id });
-
-      const imageUrl = SafeActionUtil.getData<string>(result);
+      const imageUrl = getRewardImageUrl(reward.id, Date.now());
 
       setEditingReward({
         ...reward,

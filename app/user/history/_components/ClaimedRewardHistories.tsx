@@ -14,7 +14,7 @@ type Props = {
 const ClaimedRewardHistories: FC<Props> = ({ selectedDateRange }) => {
   const { user } = useUserProtectedRoute();
 
-  const { data: userClaimedRewardHistories, isFetching } =
+  const { data: userClaimedRewardHistories, isLoading } =
     useFetchClaimedRewardHistoriesByUserId({
       user_id: user ? getUserId(user) : "",
       filter: selectedDateRange
@@ -28,7 +28,7 @@ const ClaimedRewardHistories: FC<Props> = ({ selectedDateRange }) => {
   const isHistoryEmpty =
     !userClaimedRewardHistories || userClaimedRewardHistories.length === 0;
 
-  if (isFetching)
+  if (isLoading)
     return <Loader label="กำลังดึงข้อมูลประวัติการแลกของรางวัล" />;
 
   if (isHistoryEmpty)

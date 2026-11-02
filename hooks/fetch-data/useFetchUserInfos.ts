@@ -1,6 +1,7 @@
 
-import { fetchUserInfolist,  fetchUserScorelist } from "@/actions/queries/users.action";
+import { fetchUserScorelist } from "@/actions/queries/users.action";
 import { Alert } from "@/components/ui/alert-message-dialog";
+import { apiGet } from "@/lib/utils/api-client.util";
 import { SafeActionUtil } from "@/lib/utils/safe-action.util";
 import { ProductScoreOption } from "@/models/product-score-option.model";
 import { UserInfoView } from "@/models/user.model";
@@ -11,11 +12,7 @@ export function useFetchUserInfos() {
     queryKey: ["userInfos"],
     queryFn: async () => {
       try {
-        const result = await fetchUserInfolist();
-
-        const userInfos = SafeActionUtil.getData<UserInfoView[]>(result);
-
-        return userInfos;
+        return await apiGet<UserInfoView[]>("/api/admin/users");
       } catch (error: any) {
         Alert.error(error.message);
         return null;

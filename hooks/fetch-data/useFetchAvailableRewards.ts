@@ -1,5 +1,5 @@
-import { getAvailableRewardsNew } from "@/actions/queries/reward.action";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
+import { apiGet } from "@/lib/utils/api-client.util";
+import { ServerActionResponse } from "@/models/api.model";
 import { Reward } from "@/models/reward.model";
 import { useQuery } from "@tanstack/react-query";
 
@@ -7,13 +7,13 @@ export function useFetchAvailableRewards() {
   const query = useQuery({
     queryKey: ["fetch available rewards"],
     queryFn: async () => {
-      const actionResult = await getAvailableRewardsNew();
- 
-      SafeActionUtil.validateErrors(actionResult);
+      const actionResult = await apiGet<ServerActionResponse<Reward[]>>(
+        "/api/rewards/available"
+      );
 
-      const rewards = SafeActionUtil.getData<Reward[]>(actionResult);
+      if (actionResult.isError) throw new Error(actionResult.error);
 
-      return rewards;
+      return actionResult.data ?? [];
     },
     refetchOnWindowFocus: false,
   });

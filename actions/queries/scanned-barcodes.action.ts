@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdminSession } from "@/lib/route-auth";
 import { supabaseAdminClient } from "@/lib/supabase";
 import { getFutureDate, getThaiDatetime } from "@/lib/utils/date.util";
 import { ServerActionResponse } from "@/models/api.model";
@@ -319,6 +320,8 @@ export const deleteScannedBarcodeAction = async ({
   id,
 }: Pick<ScannedBarcode, "id">): Promise<ServerActionResponse<boolean>> => {
   try {
+    await requireAdminSession();
+
     const { error } = await supabaseAdminClient
       .from(TABLE_NAME)
       .delete()
