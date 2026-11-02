@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getThaiMonthRange } from "@/features/dashboard/dashboard.queries";
 import { createAdminReadHandler, requireAdminSession } from "@/lib/route-auth";
 import { preventUnauthorizedUser } from "@/actions/util.action";
@@ -72,6 +72,32 @@ describe("createAdminReadHandler", () => {
     expect(await response.json()).toEqual({ total: 1 });
   });
 
+  it("lets a listed extra role read", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { role_title: "BILL_MANAGEMENT" } });
+
+    const response = await createAdminReadHandler(
+      async () => ({ total: 1 }),
+      ["ADMIN", "BILL_MANAGEMENT"]
+    )(
+      new NextRequest("http://localhost/api/admin/bills", {
+        headers: { authorization: "Bearer token" },
+      })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("passes a response from the read function through unchanged", async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { role_title: "ADMIN" } });
+
+    const response = await callAdminRoute(
+      async () => NextResponse.json({ error: "Invalid query" }, { status: 400 }),
+      "token"
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it("hides read errors from the response", async () => {
     mockMaybeSingle.mockResolvedValue({ data: { role_title: "ADMIN" } });
 
@@ -107,6 +133,17 @@ describe("requireAdminSession", () => {
     mockMaybeSingle.mockResolvedValue({ data: { role_title: "ADMIN" } });
 
     await expect(requireAdminSession()).resolves.toBeUndefined();
+  });
+
+  it("accepts a listed extra role and still rejects it by default", async () => {
+    mockCookieGet.mockReturnValue({ value: "token" });
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    mockMaybeSingle.mockResolvedValue({ data: { role_title: "BILL_MANAGEMENT" } });
+
+    await expect(
+      requireAdminSession(["ADMIN", "BILL_MANAGEMENT"])
+    ).resolves.toBeUndefined();
+    await expect(requireAdminSession()).rejects.toThrow();
   });
 });
 

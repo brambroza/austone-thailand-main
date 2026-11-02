@@ -26,7 +26,7 @@ export default function ProductTypeTable({
   isProcessing,
 }: ProductTypeTableProps) {
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -47,24 +47,27 @@ export default function ProductTypeTable({
               <TableRow key={productType.id}>
                 <TableCell>{productType.id}</TableCell>
                 <TableCell>{productType.title}</TableCell>
-                <TableCell className="text-right space-x-2">
+                <TableCell className="text-right space-x-1">
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
+                    title="แก้ไข"
+                    aria-label="แก้ไข"
                     onClick={() => onEdit(productType)}
                     disabled={isProcessing}
                   >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    แก้ไข
+                    <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant="destructive"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
+                    title="ลบ"
+                    aria-label="ลบ"
+                    className="hover:bg-red-100 hover:text-red-600"
                     onClick={() => onDelete(productType)}
                     disabled={isProcessing}
                   >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    ลบ
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
               </TableRow>

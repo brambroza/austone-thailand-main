@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <footer className="p-4 border-t border-border">
                 <SignOutButton />
                 <p className="text-xs text-muted-foreground mt-4 text-center">
-                  เวอร์ชั่น 1.4.1
+                  เวอร์ชั่น 1.4.2
                 </p>
               </footer>
             </aside>

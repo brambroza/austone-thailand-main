@@ -1,8 +1,8 @@
-import ExcelJS from "exceljs";
-
 export async function downloadImportTemplateXlsxWithUser(userId: string) {
   if (!userId?.trim()) throw new Error("userId ไม่ถูกต้อง");
 
+  // โหลด exceljs ตอนใช้งาน เพราะ library ใหญ่และทำให้หน้าผู้ใช้เปิดช้า
+  const { default: ExcelJS } = await import("exceljs");
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("import");
 

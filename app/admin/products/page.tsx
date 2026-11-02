@@ -15,7 +15,8 @@ import { useProductManagement } from "@/features/products/hooks/useProductManage
 import { useProductTypeManagement } from "@/features/products/hooks/useProductTypeManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductType, ProductTypePromotion } from "@/features/products/types/product.type";
-import { Pagination } from "@/components/ui/pagination";
+import { TablePagination } from "@/components/ui/pagination";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert-message-dialog";
 
@@ -29,13 +30,13 @@ type SavePayload = {
 };
 
 export default function ProductPage() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   const [reloadKeys, setReloadKeys] = useState(0);
 
 
   const {
     products,
+    pagination: productPagination,
+    allowAllProducts,
     isLoading: isLoadingProducts,
     searchQuery,
     setSearchQuery,
@@ -47,6 +48,7 @@ export default function ProductPage() {
     isImportModalOpen,
     setIsImportModalOpen,
     isImporting,
+    importProgress,
     deleteConfirmProduct,
     setDeleteConfirmProduct,
     handleDeleteProduct,
@@ -74,6 +76,9 @@ export default function ProductPage() {
     handleDeleteProductType,
     handleUpdateProductTypePromotions,
   } = useProductTypeManagement();
+
+  const { pageRows: paginatedProductTypes, pagination: productTypePagination } =
+    useTablePagination(productTypes, productTypeSearchQuery);
 
   if (isLoadingProducts || isLoadingProductTypes) return <Loading />;
 
@@ -115,18 +120,6 @@ export default function ProductPage() {
     return result || false;
   };
 
-  const filteredProducts = products.filter(
-    (product) =>
-      product.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
   return (
     <>
       {/* Product Modals */}
@@ -141,6 +134,7 @@ export default function ProductPage() {
         onClose={() => setIsImportModalOpen(false)}
         onImport={handleImportCSV}
         isImporting={isImporting}
+        importProgress={importProgress}
       />
 
       {editingProduct && (
@@ -200,16 +194,15 @@ export default function ProductPage() {
             />
 
             <ProductTable
-              products={paginatedProducts}
+              products={products}
               onEdit={setEditingProduct}
               onDelete={setDeleteConfirmProduct}
               deletingProductId={deletingProductId}
             />
 
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
+            <TablePagination
+              pagination={productPagination}
+              allowAll={allowAllProducts}
             />
           </TabsContent>
 
@@ -224,7 +217,7 @@ export default function ProductPage() {
             />
 
             <ProductTypeTable
-              productTypes={productTypes}
+              productTypes={paginatedProductTypes}
               onEdit={(e) => {
                 setReloadKeys((prev) => prev + 1);
                 setEditingProductType(e);
@@ -232,6 +225,8 @@ export default function ProductPage() {
               onDelete={setDeleteConfirmProductType}
               isProcessing={isProcessing}
             />
+
+            <TablePagination pagination={productTypePagination} />
           </TabsContent>
         </Tabs>
       </div>

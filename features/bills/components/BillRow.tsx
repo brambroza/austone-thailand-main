@@ -6,12 +6,17 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatThaiDate } from "@/lib/utils/date.util";
 import { EyeIcon, TrashIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteBill } from "../actions/bills.action";
 import { BILL_STATUS } from "../enums/bill.enum";
 import { BillWithProductAndProductTypeAndProductTypeConstraint } from "../types/bill.type";
-import SendBillPDFButton from "./SendBillPDFButton";
+
+// library สร้าง PDF ใหญ่กว่า 400 kB จึงโหลดแยกจากหน้ารายการบิล
+const SendBillPDFButton = dynamic(() => import("./SendBillPDFButton"), {
+  ssr: false,
+});
 
 interface IBillRowProps {
   bill: BillWithProductAndProductTypeAndProductTypeConstraint;
@@ -46,11 +51,9 @@ const BillRow = ({ bill }: IBillRowProps) => {
     router.push(`/admin/bills/${bill.id}`);
   }
 
-  console.log(bill.productTypeConstraints);
-
   return (
     <TableRow>
-      <TableCell>{bill.bill_no}</TableCell>
+      <TableCell className="font-medium text-gray-900">{bill.bill_no}</TableCell>
       <TableCell>{bill.customer_fullname}</TableCell>
       <TableCell>
         {bill.products?.length || 0} /{" "}
@@ -72,20 +75,22 @@ const BillRow = ({ bill }: IBillRowProps) => {
       <TableCell>
         <div
           className={cn(
-            "px-2 py-1 rounded-md text-sm w-max",
+            "px-2.5 py-1 rounded-full text-xs font-medium w-max",
             bill.status === BILL_STATUS.WAIT_FOR_SCAN
-              ? "bg-yellow-500 text-white"
-              : "bg-green-500 text-white"
+              ? "bg-amber-100 text-amber-700"
+              : "bg-green-100 text-green-700"
           )}
         >
           {bill.status}
         </div>
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
+            title="ดูรายละเอียด"
+            aria-label="ดูรายละเอียด"
             onClick={handleNavigateToBillDetail}
           >
             <EyeIcon className="h-4 w-4" />
@@ -95,8 +100,11 @@ const BillRow = ({ bill }: IBillRowProps) => {
             products={bill.productsWithProductTypes || []}
           />
           <Button
-            variant="destructive"
+            variant="ghost"
             size="icon"
+            title="ลบบิล"
+            aria-label="ลบบิล"
+            className="hover:bg-red-100 hover:text-red-600"
             onClick={handleDelete}
             disabled={isDeleting}
           >

@@ -1,16 +1,17 @@
 "use server";
 
 import { Bill } from "@/features/bills/types/bill.type";
+import { requireAdminSession } from "@/lib/route-auth";
 import { supabaseAdminClient } from "@/lib/supabase";
 import { ServerActionResponse } from "@/models/api.model";
 import {
   Product,
   ProductWithProductType,
-  ProductWithScanner,
 } from "@/models/product.model";
 import { translateProductActionErrorMessage } from "../helpers/product-action.helper";
 const PRODUCT_TABLE = "products";
 const View_Product_point = "view_products_with_point";
+const PRODUCT_IMPORT_ROLES = ["ADMIN", "BILL_MANAGEMENT"];
 
 /* export async function addMultipleProductsAction(
   products: Omit<Product, "created_at" | "updated_at">[]
@@ -56,34 +57,38 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] =>
     arr.slice(i * size, i * size + size)
   );
 
+/**
+ * เพิ่มสินค้าหลายรายการ รหัสที่มีอยู่แล้วจะถูกข้าม
+ * ไม่อ่านแถวกลับมาเพราะผู้เรียกไม่ได้ใช้ และจะทำให้ response ใหญ่ตามจำนวนแถว
+ *
+ * @param products - สินค้าที่จะเพิ่ม ควรส่งมาทีละไม่เกิน 1,000 แถว
+ * @returns ผลการบันทึก
+ */
 export async function addMultipleProductsAction(
   products: Omit<Product, "created_at" | "updated_at">[]
-): Promise<ServerActionResponse<Omit<Product, "created_at" | "updated_at">[]>> {
+): Promise<ServerActionResponse<null>> {
   try {
-    const addedProducts: Omit<Product, "created_at" | "updated_at">[] = [];
+    await requireAdminSession(PRODUCT_IMPORT_ROLES);
 
     for (const chunk of chunkArray(products, 1000)) {
-      const { data, error } = await supabaseAdminClient
+      const { error } = await supabaseAdminClient
         .from(PRODUCT_TABLE)
         .upsert(chunk, {
           onConflict: "id",
           ignoreDuplicates: true,
-        })
-        .select();
+        });
 
       if (error) throw new Error(error.message);
-
-      if (data) addedProducts.push(...data);
     }
 
     return {
-      data: addedProducts,
+      data: null,
       isError: false,
       error: "",
     };
   } catch (error: any) {
     return {
-      data: [],
+      data: null,
       isError: true,
       error: translateProductActionErrorMessage(error.message),
     };
@@ -128,32 +133,6 @@ export async function replaceMultipleProductsAction(
       data: [],
       isError: true,
       error: `[ERROR] : ล้มเหลวในการแทนที่สินค้า -> ${error.message}`,
-    };
-  }
-}
-
-export async function getAllProductsWithScannerAction(): Promise<
-  ServerActionResponse<ProductWithScanner[]>
-> {
-  try {
-    const { data: products, error } = await supabaseAdminClient
-      .from("products_with_scanners")
-      .select("*")
-      .returns<ProductWithScanner[]>();
-
-    if (error) throw new Error(error.message);
-
-    return {
-      data: products,
-      isError: false,
-      error: "",
-    };
-  } catch (error: any) {
-    console.error(`[ERROR] : ล้มเหลวในการดึงข้อมูลสินค้า -> ${error.message}`);
-    return {
-      data: [],
-      isError: true,
-      error: `ล้มเหลวในการดึงข้อมูลสินค้าทั้งหมด`,
     };
   }
 }

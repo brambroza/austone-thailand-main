@@ -83,9 +83,12 @@ async function getUserRole(userId: string): Promise<string | null> {
  * ตรวจว่าผู้เรียก server action เป็น admin จาก cookie
  * ใช้กับ action ที่ไม่ได้สร้างจาก authSafeActionClient
  *
- * @throws Error เมื่อยังไม่เข้าสู่ระบบหรือไม่ใช่ admin
+ * @param allowedRoles - role ที่อนุญาต ค่าเริ่มต้นคือ ADMIN เท่านั้น
+ * @throws Error เมื่อยังไม่เข้าสู่ระบบหรือไม่มีสิทธิ์
  */
-export async function requireAdminSession(): Promise<void> {
+export async function requireAdminSession(
+  allowedRoles: string[] = ["ADMIN"]
+): Promise<void> {
   const cookieStore = cookies();
 
   const userId =
@@ -95,7 +98,7 @@ export async function requireAdminSession(): Promise<void> {
       cookieStore.get(LINE_AUTH_TOKEN_COOKIE_NAME)?.value
     ));
 
-  if (!userId || (await getUserRole(userId)) !== "ADMIN") {
+  if (!userId || !allowedRoles.includes((await getUserRole(userId)) ?? "")) {
     throw new Error("คุณไม่มีสิทธิในการเข้าถึง");
   }
 }
@@ -103,10 +106,14 @@ export async function requireAdminSession(): Promise<void> {
 /**
  * สร้าง GET handler สำหรับข้อมูลที่อนุญาตเฉพาะ admin
  *
- * @param read - ฟังก์ชันอ่านข้อมูล ทำงานหลังตรวจสิทธิ์แล้วเท่านั้น
+ * @param read - ฟังก์ชันอ่านข้อมูล ทำงานหลังตรวจสิทธิ์แล้วเท่านั้น คืน NextResponse เองได้เมื่อ input ไม่ถูกต้อง
+ * @param allowedRoles - role ที่อ่านได้ ค่าเริ่มต้นคือ ADMIN เท่านั้น
  * @returns GET handler ของ route
  */
-export function createAdminReadHandler(read: () => Promise<unknown>) {
+export function createAdminReadHandler(
+  read: (request: NextRequest) => Promise<unknown>,
+  allowedRoles: string[] = ["ADMIN"]
+) {
   return async function GET(request: NextRequest) {
     const requesterId = await resolveRequesterId(request);
 
@@ -114,12 +121,14 @@ export function createAdminReadHandler(read: () => Promise<unknown>) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if ((await getUserRole(requesterId)) !== "ADMIN") {
+    if (!allowedRoles.includes((await getUserRole(requesterId)) ?? "")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     try {
-      return NextResponse.json(await read());
+      const result = await read(request);
+
+      return result instanceof NextResponse ? result : NextResponse.json(result);
     } catch (error: any) {
       console.error(`[ERROR] : admin read failed -> ${error.message}`);
       return NextResponse.json({ error: "Read failed" }, { status: 500 });

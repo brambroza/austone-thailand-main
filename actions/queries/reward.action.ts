@@ -191,39 +191,6 @@ export const getRewardById = authSafeActionClient
 
 /* ============== */
 
-export const getRewardsNew = async (): Promise<ServerActionResponse<any[]>> => {
-  try {
-    const { data, error } = await supabaseAdminClient
-      .from(TABLE_NAME)
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(`[ERROR] getRewardsNew: ${error.message}`);
-      return {
-        data: [],
-        isError: true,
-        error: "ล้มเหลวระหว่างการดึงข้อมูลรางวัล",
-      };
-    }
-
-    return {
-      data: data ?? [],
-      isError: false,
-      error: "",
-    };
-  } catch (err: any) {
-    console.error(`[EXCEPTION] getRewardsNew -> ${err.message}`);
-    return {
-      data: [],
-      isError: true,
-      error: "ล้มเหลวระหว่างการดึงข้อมูลรางวัล",
-    };
-  }
-};
-
-
-
 export async function getAvailableRewardsNew() {
   try {
     const now = new Date().toISOString();

@@ -28,6 +28,7 @@ interface ImportProductsModalProps {
   onClose: () => void;
   onImport: (file: File) => Promise<void>;
   isImporting: boolean;
+  importProgress?: string;
 }
 
 export default function ImportProductsModal({
@@ -35,6 +36,7 @@ export default function ImportProductsModal({
   onClose,
   onImport,
   isImporting,
+  importProgress,
 }: ImportProductsModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { data: productTypes, isFetching: isFetchingProductTypes } =
@@ -114,7 +116,7 @@ export default function ImportProductsModal({
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : (
-              <div className="border rounded-lg flex flex-col h-[300px] overflow-y-scroll">
+              <div className="flex h-[300px] flex-col overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -136,7 +138,12 @@ export default function ImportProductsModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          {importProgress && (
+            <span className="mr-auto text-sm text-muted-foreground">
+              {importProgress}
+            </span>
+          )}
           <Button variant="outline" onClick={onClose} disabled={isImporting}>
             ยกเลิก
           </Button>

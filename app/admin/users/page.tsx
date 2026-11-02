@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Search, Download, Upload } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LoadingModal } from "@/components/ui/loading-modal";
@@ -26,11 +25,15 @@ export default function UsersPage() {
   const searchQuery = useManageUserPageStore((s) => s.searchQuery);
   const setSearchQuery = useManageUserPageStore((s) => s.setSearchQuery);
 
-  const { data: users, isFetching, refetch } = useFetchUserInfos();
-  const filteredUsers = searchUser(searchQuery, users ?? []);
+  const { data: users, isLoading, refetch } = useFetchUserInfos();
+  const filteredUsers = useMemo(
+    () => searchUser(searchQuery, users ?? []),
+    [searchQuery, users]
+  );
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("กำลังนำเข้า Excel...");
 
   const [openDownload, setOpenDownload] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -50,11 +53,15 @@ export default function UsersPage() {
 
   const handleUploadExcel = async (file: File) => {
     setUploading(true);
+    setUploadMessage("กำลังตรวจสอบไฟล์...");
     try {
-      const res = await importExcelToSupabaseClientOnly(file);
+      const res = await importExcelToSupabaseClientOnly(file, ({ savedRows, totalRows }) =>
+        setUploadMessage(
+          `กำลังนำเข้า Excel ${savedRows.toLocaleString("th-TH")} / ${totalRows.toLocaleString("th-TH")} แถว`
+        )
+      );
       Alert.success(`นำเข้า Excel สำเร็จ (อ่าน ${res.imported} แถว)`);
-      // ถ้าต้อง refresh:
-      // await refetch();
+      refetch();
     } catch (e: any) {
       console.log("e?.messag" ,e?.message);
       Alert.error(e?.message ?? "นำเข้าไฟล์ล้มเหลว");
@@ -107,21 +114,22 @@ export default function UsersPage() {
       </div>
 
       {filteredUsers && (
-        <Card className="p-6">
+        <div>
           <UsersTable
             users={filteredUsers}
+            searchQuery={searchQuery}
             onRefreshData={refetch}
             onScanallBarcode={handleScanallBarcode}
           />
-        </Card>
+        </div>
       )}
 
       <EditUserModal onRefreshUsers={refetch} />
       <DeleteUserDialog />
 
       <LoadingModal
-        isOpen={isFetching || uploading}
-        message={uploading ? "กำลังนำเข้า Excel..." : "กำลังโหลดข้อมูลรายชื่อผู้ใช้..."}
+        isOpen={isLoading || uploading}
+        message={uploading ? uploadMessage : "กำลังโหลดข้อมูลรายชื่อผู้ใช้..."}
       />
 
       <DownloadTemplateDialog

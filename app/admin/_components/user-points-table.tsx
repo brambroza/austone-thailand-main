@@ -1,6 +1,8 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { TablePagination } from "@/components/ui/pagination";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import { Search } from "lucide-react";
 import {
   Table,
@@ -10,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { UserInfoView } from "@/models/user.model";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,27 +26,32 @@ export function UserPointsTable({ users }: IUserPointsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  const filteredUsers = users?.filter(
-    (user) =>
-      user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phone_number?.includes(searchQuery) ||
-      user.store_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.agent_store_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const sortedUsers = useMemo(() => {
+    const filteredUsers = (users ?? []).filter(
+      (user) =>
+        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.phone_number?.includes(searchQuery) ||
+        user.store_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.agent_store_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return filteredUsers.sort((a, b) => {
+      const scoreA = a.total_score ?? 0;
+      const scoreB = b.total_score ?? 0;
+      return sortDirection === "asc" ? scoreA - scoreB : scoreB - scoreA;
+    });
+  }, [users, searchQuery, sortDirection]);
+
+  const { pageRows, pagination } = useTablePagination(
+    sortedUsers,
+    `${searchQuery}|${sortDirection}`
   );
-
-  const sortedUsers = filteredUsers?.sort((a, b) => {
-    const scoreA = a.total_score ?? 0;
-    const scoreB = b.total_score ?? 0;
-    return sortDirection === "asc" ? scoreA - scoreB : scoreB - scoreA;
-  });
-
-  if (!sortedUsers) return <h3>ไม่พบข้อมูล</h3>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             placeholder="ค้นหา..."
             value={searchQuery}
@@ -54,7 +61,7 @@ export function UserPointsTable({ users }: IUserPointsTableProps) {
         </div>
       </div>
 
-      <div className="rounded-md border">
+      <div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -77,17 +84,17 @@ export function UserPointsTable({ users }: IUserPointsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedUsers.length === 0 ? (
+            {pageRows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={3}
-                  className="text-center text-muted-foreground"
+                  colSpan={5}
+                  className="text-center text-gray-500"
                 >
                   ไม่พบข้อมูล
                 </TableCell>
               </TableRow>
             ) : (
-              sortedUsers.map((user) => (
+              pageRows.map((user) => (
                 <TableRow key={user.user_id}>
                   <TableCell>{user.full_name ?? "ไม่ระบุ"}</TableCell>
                   <TableCell>
@@ -108,6 +115,7 @@ export function UserPointsTable({ users }: IUserPointsTableProps) {
           </TableBody>
         </Table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

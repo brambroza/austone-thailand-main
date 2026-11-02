@@ -82,7 +82,7 @@ async function fetchCurrentMonthClaimedRewards(): Promise<any[]> {
   const { data, error } = await supabaseAdminClient
     .from("claimed_reward_histories")
     .select(
-      "id, reward_id, quantity, user_id, created_at, email, shipping_address, status, rewards(*), users(*)"
+      "id, reward_id, quantity, user_id, created_at, email, shipping_address, status, rewards(title, required_score), users(full_name, store_name, agent_store_name)"
     )
     .order("created_at", { ascending: false })
     .gte("created_at", start)
@@ -94,7 +94,8 @@ async function fetchCurrentMonthClaimedRewards(): Promise<any[]> {
 }
 
 /**
- * ดึงข้อมูลทั้งหมดของหน้า dashboard พร้อมกัน
+ * ดึงข้อมูลของหน้า dashboard พร้อมกัน
+ * รายชื่อผู้ใช้โหลดแยกผ่าน /api/admin/users เพราะช้าที่สุด จึงไม่ให้ตัวเลขสรุปต้องรอ
  *
  * @returns ข้อมูลสรุป กราฟ และตารางของ dashboard
  */
@@ -104,14 +105,12 @@ export async function getDashboardData() {
     totalUserScores,
     totalClaimedRewards,
     scannedBarcodes,
-    userInfos,
     claimedRewardHistories,
   ] = await Promise.all([
     countRows("users"),
     sumActiveScores(),
     countRows("claimed_reward_histories"),
     fetchScannedBarcodeDates(),
-    fetchAllUserInfos(),
     fetchCurrentMonthClaimedRewards(),
   ]);
 
@@ -120,7 +119,6 @@ export async function getDashboardData() {
     totalUserScores,
     totalClaimedRewards,
     scannedBarcodes,
-    userInfos,
     claimedRewardHistories,
   };
 }

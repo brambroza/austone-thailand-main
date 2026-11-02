@@ -18,6 +18,7 @@ export function useFetchUserInfos() {
         return null;
       }
     },
+    refetchOnWindowFocus: false,
   });
 
   return query;

@@ -27,7 +27,7 @@ export default function ProductTable({
   deletingProductId,
 }: ProductTableProps) {
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -41,9 +41,16 @@ export default function ProductTable({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {products.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={7} className="h-32 text-center text-gray-500">
+                ไม่พบข้อมูลสินค้า
+              </TableCell>
+            </TableRow>
+          )}
           {products.map((product) => (
             <TableRow key={product.id}>
-              <TableCell>{product.id}</TableCell>
+              <TableCell className="font-medium text-gray-900">{product.id}</TableCell>
               <TableCell>{product.bill_no || "ไม่มีเลขบิล"}</TableCell>
               <TableCell>
                 {product.created_at
@@ -57,23 +64,26 @@ export default function ProductTable({
               </TableCell>
               <TableCell>{product.method}</TableCell>
               <TableCell>{product.full_name ?? "ยังไม่ถูกสแกน"}</TableCell>
-              <TableCell className="text-right space-x-2">
+              <TableCell className="text-right space-x-1">
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  title="แก้ไข"
+                  aria-label="แก้ไข"
                   onClick={() => onEdit(product)}
                 >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  แก้ไข
+                  <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant="destructive"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  title="ลบ"
+                  aria-label="ลบ"
+                  className="hover:bg-red-100 hover:text-red-600"
                   onClick={() => onDelete(product)}
                   disabled={deletingProductId === product.id}
                 >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  ลบ
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </TableCell>
             </TableRow>

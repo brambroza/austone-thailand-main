@@ -2,15 +2,12 @@
 
 import { DatePicker } from "@/app/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { useFetchClaimedRewardHistories } from "@/hooks/fetch-data/useFetchClaimedRewardHistories";
 import { useFetchUserInfo } from "@/hooks/fetch-data/useFetchUserInfo";
-import { saveAs } from "file-saver";
 import { Download } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import * as XLSX from "xlsx";
 import ClaimedRewardsTable from "./_components/ClaimedRewardsTable";
 
 export default function ClaimedRewardsPage() {
@@ -50,7 +47,13 @@ export default function ClaimedRewardsPage() {
     return matchesUser && matchesStartDate && matchesEndDate;
   });
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
+    // โหลด library ตอนกด export เพราะมีขนาดใหญ่และทำให้หน้าเปิดช้า
+    const [XLSX, { saveAs }] = await Promise.all([
+      import("xlsx"),
+      import("file-saver"),
+    ]);
+
     const rows = (filteredHistories ?? []).map((history) => ({
       "ชื่อรางวัล": history.rewards.title,
       "ชื่อผู้แลก": history.users.full_name,
@@ -137,14 +140,14 @@ export default function ClaimedRewardsPage() {
         </div>
       </div>
 
-      <Card className="p-6">
+      <div>
         {filteredHistories && (
           <ClaimedRewardsTable
             histories={filteredHistories}
             onRefresh={() => refetch()}
           />
         )}
-      </Card>
+      </div>
 
       <LoadingModal
         isOpen={isLoading}

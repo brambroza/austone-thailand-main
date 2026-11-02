@@ -6,20 +6,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TablePagination } from "@/components/ui/pagination";
 import { sortUserTotalScore } from "@/features/users/helper/sort-user-total-score.helper";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import { UserInfoView } from "@/models/user.model";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useManageUserPageStore } from "../_store";
 import UserRow from "./UserRow";
 import TransferUserScoreModal from "@/features/users/components/TransferUserScoreModal";
 
 interface UsersTableProps {
   users: UserInfoView[];
+  searchQuery: string;
   onRefreshData: () => void;
   onScanallBarcode: (user: UserInfoView) => void;
 }
 
-export function UsersTable({ users, onRefreshData, onScanallBarcode }: UsersTableProps) {
+export function UsersTable({ users, searchQuery, onRefreshData, onScanallBarcode }: UsersTableProps) {
   const onEditClick = useManageUserPageStore((state) => state.onEditClick);
 
   const onDeleteClick = useManageUserPageStore((state) => state.onDeleteClick);
@@ -29,7 +32,15 @@ export function UsersTable({ users, onRefreshData, onScanallBarcode }: UsersTabl
 
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const sortedUsers = sortUserTotalScore(users, sortOrder);
+  const sortedUsers = useMemo(
+    () => sortUserTotalScore(users, sortOrder),
+    [users, sortOrder]
+  );
+
+  const { pageRows, pagination } = useTablePagination(
+    sortedUsers,
+    `${searchQuery}|${sortOrder}`
+  );
 
   function toggleSort() {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -46,14 +57,14 @@ export function UsersTable({ users, onRefreshData, onScanallBarcode }: UsersTabl
       <Table>
         <Header onSortClick={toggleSort} sortOrder={sortOrder} />
         <TableBody>
-          {sortedUsers.length === 0 ? (
+          {pageRows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="h-32 text-center">
+              <TableCell colSpan={7} className="h-32 text-center text-gray-500">
                 ไม่พบข้อมูลผู้ใช้
               </TableCell>
             </TableRow>
           ) : (
-            sortedUsers.map((user) => (
+            pageRows.map((user) => (
               <UserRow
                 key={user.user_id}
                 user={user}
@@ -66,6 +77,7 @@ export function UsersTable({ users, onRefreshData, onScanallBarcode }: UsersTabl
           )}
         </TableBody>
       </Table>
+      <TablePagination pagination={pagination} />
     </>
   );
 }
@@ -87,7 +99,7 @@ const Header = ({
         <TableHead>จังหวัด</TableHead>
         <TableHead
           onClick={onSortClick}
-          className="cursor-pointer hover:bg-gray-100"
+          className="cursor-pointer text-right hover:text-gray-900"
         >
           แต้มสะสม {sortOrder === "asc" ? "↑" : "↓"}
         </TableHead>

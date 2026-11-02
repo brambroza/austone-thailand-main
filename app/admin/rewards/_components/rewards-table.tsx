@@ -32,7 +32,7 @@ function RewardRow({ reward, onEdit, onToggleStatus, onToggleAlertEnable }: Rewa
   );
 
   return (
-    <TableRow className="hover:bg-muted/50">
+    <TableRow>
       <TableCell>
         {imageUrl ? (
           <img
@@ -41,11 +41,11 @@ function RewardRow({ reward, onEdit, onToggleStatus, onToggleAlertEnable }: Rewa
             className="h-10 w-10 object-cover rounded-md"
           />
         ) : (
-          <div className="h-10 w-10 bg-muted rounded-md" />
+          <div className="h-10 w-10 bg-gray-100 rounded-md" />
         )}
       </TableCell>
-      <TableCell className="font-medium">{reward.name}</TableCell>
-      <TableCell>{reward.description}</TableCell>
+      <TableCell className="font-medium text-gray-900">{reward.name}</TableCell>
+      <TableCell className="max-w-[260px] truncate" title={reward.description}>{reward.description}</TableCell>
       <TableCell>{reward.points.toLocaleString("th-TH")}</TableCell>
       <TableCell>{reward.amount.toLocaleString("th-TH")}</TableCell>
       <TableCell>
@@ -117,7 +117,7 @@ export function RewardsTable({
       <TableBody>
         {rewards.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={9} className="h-32 text-center">
+            <TableCell colSpan={10} className="h-32 text-center text-gray-500">
               ไม่พบข้อมูลของรางวัล
             </TableCell>
           </TableRow>

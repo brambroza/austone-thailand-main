@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader } from "@/components/ui/loader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFetchDashboard } from "@/hooks/fetch-data/useFetchDashboard";
+import { useFetchUserInfos } from "@/hooks/fetch-data/useFetchUserInfos";
 import DailyScannedBarcodeChart from "./_components/DailyScannedBarcodeChart";
 import { RedemptionsTable } from "./_components/redemptions-table";
 import { StatsCards } from "./_components/stats-cards";
@@ -12,6 +13,7 @@ import DailyClaimedRewards from "./users/_components/DailyClaimedRewards";
 
 export default function AdminDashboard() {
   const { data: dashboard, isLoading, isError } = useFetchDashboard();
+  const { data: userInfos, isLoading: isLoadingUserInfos } = useFetchUserInfos();
 
   if (isLoading) return <Loader label="กำลังดึงข้อมูลหน้า Dashboard" />;
 
@@ -35,7 +37,6 @@ export default function AdminDashboard() {
     totalUserScores,
     totalClaimedRewards,
     scannedBarcodes,
-    userInfos,
     claimedRewardHistories,
   } = dashboard;
 
@@ -50,7 +51,11 @@ export default function AdminDashboard() {
       <div className="grid gap-6 md:grid-cols-2">
         <DailyScannedBarcodeChart scannedBarcodes={scannedBarcodes ?? []} />
 
-        <TopProvincesChart userInfos={userInfos ?? []} />
+        {isLoadingUserInfos ? (
+          <Loader className="h-[300px]" label="กำลังดึงข้อมูลจังหวัด" />
+        ) : (
+          <TopProvincesChart userInfos={userInfos ?? []} />
+        )}
 
         <DailyClaimedRewards />
       </div>
@@ -72,7 +77,11 @@ export default function AdminDashboard() {
             </TabsContent>
 
             <TabsContent value="points">
-              <UserPointsTable users={userInfos ?? []} />
+              {isLoadingUserInfos ? (
+                <Loader className="h-[200px]" label="กำลังดึงข้อมูลผู้ใช้" />
+              ) : (
+                <UserPointsTable users={userInfos ?? []} />
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

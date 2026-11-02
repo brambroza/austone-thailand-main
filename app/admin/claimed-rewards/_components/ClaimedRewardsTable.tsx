@@ -18,6 +18,8 @@ import { Alert } from "@/components/ui/alert-message-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { TablePagination } from "@/components/ui/pagination";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import {
   Select,
   SelectContent,
@@ -89,14 +91,20 @@ export default function ClaimedRewardsTable({
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
+  const { pageRows, pagination } = useTablePagination(
+    filteredAndSortedHistories,
+    [searchQuery, filterBy, sortOrder].join("|")
+  );
+
   // รายการที่ยกเลิกไปแล้วห้ามแก้สถานะซ้ำ จึงไม่ให้เลือกเพื่ออัปเดตแบบกลุ่ม
+  // เลือกทั้งหมดมีผลเฉพาะหน้าที่เห็น เพื่อไม่ให้อัปเดตแถวที่ผู้ใช้ไม่เห็นโดยไม่ตั้งใจ
   const selectableHistories = useMemo(
     () =>
-      filteredAndSortedHistories.filter(
+      pageRows.filter(
         (history) =>
           history.status !== CLAIMED_REWARD_HISTORY_STATUS.CANCELLED
       ),
-    [filteredAndSortedHistories]
+    [pageRows]
   );
 
   const isAllSelected =
@@ -104,11 +112,13 @@ export default function ClaimedRewardsTable({
     selectableHistories.every((history) => selectedIds.includes(history.id));
 
   const toggleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(selectableHistories.map((history) => history.id));
-    }
+    const pageIds = selectableHistories.map((history) => history.id);
+
+    setSelectedIds((prev) =>
+      isAllSelected
+        ? prev.filter((id) => !pageIds.includes(id))
+        : Array.from(new Set([...prev, ...pageIds]))
+    );
   };
 
   const toggleSelectRow = (id: number) => {
@@ -221,7 +231,7 @@ export default function ClaimedRewardsTable({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             placeholder="ค้นหา..."
             value={searchQuery}
@@ -286,28 +296,25 @@ export default function ClaimedRewardsTable({
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
+      <div>
+        <Table className="min-w-[1000px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40px]">
+              <TableHead className="w-[44px]">
                 <Checkbox
                   checked={isAllSelected}
                   onCheckedChange={toggleSelectAll}
-                  aria-label="เลือกทั้งหมด"
+                  aria-label="เลือกทั้งหมดในหน้านี้"
                 />
               </TableHead>
-              <TableHead>ชื่อรางวัล</TableHead>
-              <TableHead>ชื่อผู้แลก</TableHead>
-              <TableHead>ชื่อร้านค้า</TableHead>
-              <TableHead>ชื่อร้านค้าตัวแทนจำหน่าย</TableHead>
-              <TableHead>อีเมล</TableHead>
-              <TableHead className="max-w-[300px]">ที่อยู่จัดส่ง</TableHead>
-              <TableHead>สถานะ</TableHead>
-              <TableHead>
+              <TableHead className="min-w-[180px]">ของรางวัล</TableHead>
+              <TableHead className="min-w-[200px]">ผู้แลก</TableHead>
+              <TableHead className="min-w-[240px]">การจัดส่ง</TableHead>
+              <TableHead className="w-[160px]">สถานะ</TableHead>
+              <TableHead className="w-[130px]">
                 <Button
                   variant="ghost"
-                  className="h-8 p-0 hover:bg-transparent"
+                  className="h-8 p-0 text-xs font-medium text-gray-500 hover:bg-transparent"
                   onClick={toggleSortOrder}
                 >
                   วันที่แลก
@@ -318,22 +325,32 @@ export default function ClaimedRewardsTable({
                   )}
                 </Button>
               </TableHead>
-              <TableHead className="text-center">จัดการ</TableHead>
+              <TableHead className="w-[130px] text-right">จัดการ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedHistories.length === 0 ? (
-              <TableRow>
+            {pageRows.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
                 <TableCell
-                  colSpan={10}
-                  className="h-24 text-center text-muted-foreground"
+                  colSpan={7}
+                  className="h-32 text-center text-gray-500"
                 >
                   ไม่พบข้อมูล
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAndSortedHistories.map((history) => (
-                <TableRow key={history.id}>
+              pageRows.map((history) => (
+                <TableRow
+                  key={history.id}
+                  data-state={
+                    selectedIds.includes(history.id) ? "selected" : undefined
+                  }
+                  className={cn({
+                    "bg-gray-50/60 opacity-60":
+                      history.status ===
+                      CLAIMED_REWARD_HISTORY_STATUS.CANCELLED,
+                  })}
+                >
                   <TableCell>
                     <Checkbox
                       checked={selectedIds.includes(history.id)}
@@ -345,82 +362,100 @@ export default function ClaimedRewardsTable({
                       aria-label={`เลือกรายการ ${history.rewards.title}`}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">
-                    {history.rewards.title}
-                  </TableCell>
-                  <TableCell>{history.users.full_name}</TableCell>
-                  <TableCell>{history.users.store_name ?? "ไม่ระบุ"}</TableCell>
                   <TableCell>
-                    {Boolean(history.users.agent_store_name)
-                      ? history.users.agent_store_name
-                      : "ไม่ระบุ"}
+                    <p className="font-medium">{history.rewards.title}</p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      จำนวน {history.quantity.toLocaleString("th-TH")} ชิ้น
+                    </p>
                   </TableCell>
-                  <TableCell>{history.email || "-"}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">
-                    {history.shipping_address || "-"}
+                  <TableCell>
+                    <p className="font-medium">{history.users.full_name}</p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      ร้าน: {history.users.store_name || "ไม่ระบุ"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ตัวแทน: {history.users.agent_store_name || "ไม่ระบุ"}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="max-w-[280px] truncate">
+                      {history.email || "-"}
+                    </p>
+                    <p
+                      className="mt-0.5 line-clamp-2 max-w-[280px] text-xs text-gray-500"
+                      title={history.shipping_address || undefined}
+                    >
+                      {history.shipping_address || "ไม่มีที่อยู่จัดส่ง"}
+                    </p>
                   </TableCell>
                   <TableCell>
                     {history.status ===
                     CLAIMED_REWARD_HISTORY_STATUS.CANCELLED ? (
-                      <span className="inline-flex w-[140px] justify-center rounded-md border px-3 py-2 text-sm font-bold text-gray-500">
+                      <span className="inline-flex h-8 w-[140px] items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-500">
                         {CLAIMED_REWARD_HISTORY_STATUS.CANCELLED}
                       </span>
                     ) : (
-                    <Select
-                      value={history.status}
-                      onValueChange={(value: CLAIMED_REWARD_HISTORY_STATUS) =>
-                        handleStatusChange(history.id, value)
-                      }
-                      disabled={updatingStatus === history.id}
-                    >
-                      <SelectTrigger
-                        className={cn("w-[140px] font-bold", {
-                          "text-red-500":
-                            history.status ===
-                            CLAIMED_REWARD_HISTORY_STATUS.INSPECTING,
-                          "text-green-500":
-                            history.status ===
-                            CLAIMED_REWARD_HISTORY_STATUS.DELIVERED,
-                        })}
+                      <Select
+                        value={history.status}
+                        onValueChange={(value: CLAIMED_REWARD_HISTORY_STATUS) =>
+                          handleStatusChange(history.id, value)
+                        }
+                        disabled={updatingStatus === history.id}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem
-                          value={CLAIMED_REWARD_HISTORY_STATUS.INSPECTING}
-                          className="font-bold text-red-500"
+                        <SelectTrigger
+                          className={cn(
+                            "h-8 w-[140px] rounded-full border-0 text-sm font-medium",
+                            {
+                              "bg-amber-100 text-amber-700":
+                                history.status ===
+                                CLAIMED_REWARD_HISTORY_STATUS.INSPECTING,
+                              "bg-green-100 text-green-700":
+                                history.status ===
+                                CLAIMED_REWARD_HISTORY_STATUS.DELIVERED,
+                            }
+                          )}
                         >
-                          กำลังตรวจสอบ
-                        </SelectItem>
-                        <SelectItem
-                          value={CLAIMED_REWARD_HISTORY_STATUS.DELIVERED}
-                          className="font-bold text-green-500"
-                        >
-                          จัดส่งแล้ว
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem
+                            value={CLAIMED_REWARD_HISTORY_STATUS.INSPECTING}
+                          >
+                            กำลังตรวจสอบ
+                          </SelectItem>
+                          <SelectItem
+                            value={CLAIMED_REWARD_HISTORY_STATUS.DELIVERED}
+                          >
+                            จัดส่งแล้ว
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {format(new Date(history.created_at), "d MMM yyyy HH:mm", {
-                      locale: th,
-                    })}
+                  <TableCell className="whitespace-nowrap">
+                    <p>
+                      {format(new Date(history.created_at), "d MMM yyyy", {
+                        locale: th,
+                      })}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {format(new Date(history.created_at), "HH:mm น.", {
+                        locale: th,
+                      })}
+                    </p>
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-right">
                     {history.status ===
-                    CLAIMED_REWARD_HISTORY_STATUS.INSPECTING ? (
+                      CLAIMED_REWARD_HISTORY_STATUS.INSPECTING && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="text-red-500 hover:text-red-600"
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600"
                         onClick={() => setHistoryToCancel(history)}
                         disabled={updatingStatus === history.id}
                       >
                         ยกเลิกการแลก
                       </Button>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -429,6 +464,8 @@ export default function ClaimedRewardsTable({
           </TableBody>
         </Table>
       </div>
+
+      <TablePagination pagination={pagination} />
 
       <AlertDialog
         open={Boolean(historyToCancel)}

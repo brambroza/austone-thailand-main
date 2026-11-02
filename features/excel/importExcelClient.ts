@@ -1,16 +1,22 @@
 "use client";
 
-import ExcelJS from "exceljs";
 import { supabaseAnonClient } from "@/lib/anon-supabase";
 import { ADD_PRODUCT_METHOD } from "@/models/enums/product.enum";
-import { addMultipleProductsAction } from "../products/actions/products.action";
+import { chunkItems } from "@/lib/utils/pagination.util";
 import {
     createExcelImportUpload,
-    saveImportedScannedBarcodes,
+    saveImportBatch,
 } from "./actions/import-excel.action";
 import {
     Product
 } from "@/models/product.model";
+
+const IMPORT_BATCH_SIZE = 1000;
+
+export type ImportProgress = {
+    savedRows: number;
+    totalRows: number;
+};
 
 type ImportRow = {
     product_id: string;
@@ -33,34 +39,23 @@ function asString(v: any) {
     return String(v ?? "").trim();
 }
 
-export async function importExcelToSupabaseClientOnly(file: File) {
+/**
+ * นำเข้าไฟล์ Excel: ตรวจไฟล์ เก็บไฟล์ต้นฉบับ แล้วบันทึกทีละชุด
+ *
+ * @param file - ไฟล์ .xlsx
+ * @param onProgress - เรียกทุกครั้งที่บันทึกเสร็จหนึ่งชุด
+ * @returns path ของไฟล์ที่เก็บไว้และจำนวนแถวที่นำเข้า
+ * @throws Error เมื่อไฟล์ไม่ถูกต้องหรือบันทึกไม่สำเร็จ โดยข้อความบอกจำนวนแถวที่บันทึกไปแล้ว
+ */
+export async function importExcelToSupabaseClientOnly(
+    file: File,
+    onProgress?: (progress: ImportProgress) => void
+) {
     const buffer = await file.arrayBuffer();
 
-    // 1) ขอ signed URL จาก Server Action ซึ่งยืนยันได้ทั้ง LINE และอีเมล
-    const bucket = "excel-imports";
-    const path = `users_import/${Date.now()}_${file.name}`;
-    const signedUpload = await createExcelImportUpload({ path });
-
-    if (!signedUpload?.data) {
-        throw new Error(signedUpload?.serverError ?? "ไม่สามารถเตรียมการอัปโหลดไฟล์ได้");
-    }
-
-    const uploadRes = await supabaseAnonClient.storage.from(bucket).uploadToSignedUrl(
-        path,
-        signedUpload.data.token,
-        buffer,
-        {
-        contentType:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        upsert: false,
-        }
-    );
-
-    if (uploadRes.error) {
-        throw new Error(`อัปโหลดไฟล์ไม่สำเร็จ: ${uploadRes.error.message}`);
-    }
-
-    // 2) parse excel
+    // 1) parse excel ก่อนอัปโหลด ไฟล์ผิด template จะได้ไม่ต้องรออัปโหลด
+    // โหลด exceljs ตอนใช้งาน เพราะ library ใหญ่และทำให้หน้าผู้ใช้เปิดช้า
+    const { default: ExcelJS } = await import("exceljs");
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer);
 
@@ -102,48 +97,71 @@ export async function importExcelToSupabaseClientOnly(file: File) {
 
     if (!rows.length) throw new Error("ไม่มีข้อมูลให้ import");
 
-    // 3) upsert products (onConflict: id)
-    const nowIso = new Date().toISOString();
-    const productsPayload: Omit<Product, "created_at" | "updated_at">[] = rows.map((r) => ({
-        id: r.product_id,
-        method: ADD_PRODUCT_METHOD.EXCEL,
-        product_type_id: r.product_type_id ?? null,
-        bill_id: r.bill_id != null ? String(r.bill_id) : null, // ✅ number -> string
-        updated_by_user_id: r.user_id ?? null,
-    }));
+    // 2) ขอ signed URL จาก Server Action ซึ่งยืนยันได้ทั้ง LINE และอีเมล
+    const bucket = "excel-imports";
+    const path = `users_import/${Date.now()}_${file.name}`;
+    const signedUpload = await createExcelImportUpload({ path });
 
-
-    /* const upProducts = await supabaseAnonClient
-        .from("products")
-        .upsert(productsPayload, { onConflict: "id" }); */
-
-    const upProducts = await addMultipleProductsAction(productsPayload);
-
-    if (upProducts.error) {
-        throw new Error(`บันทึก products ไม่สำเร็จ: ${upProducts.error}`);
+    if (!signedUpload?.data) {
+        throw new Error(signedUpload?.serverError ?? "ไม่สามารถเตรียมการอัปโหลดไฟล์ได้");
     }
 
-    // 4) upsert scanned_barcodes
-    // **ตาม schema ของคุณ unique(product_id)** → ใช้ onConflict: "product_id"
-    const scannedPayload = rows.map((r) => {
-        const years = r.expire_years ?? 2;
-        const expired = new Date();
-        expired.setFullYear(expired.getFullYear() + years);
+    const uploadRes = await supabaseAnonClient.storage.from(bucket).uploadToSignedUrl(
+        path,
+        signedUpload.data.token,
+        buffer,
+        {
+        contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        upsert: false,
+        }
+    );
 
-        return {
-            product_id: r.product_id,
-            user_id: r.user_id ?? null,
-            created_date: nowIso,
-            expired_date: expired.toISOString().slice(0, 10), // date
-            product_score_option_id: r.product_score_option_id ?? 1,
-            point_multiplier: r.point_multiplier ?? null,
-        };
-    });
+    if (uploadRes.error) {
+        throw new Error(`อัปโหลดไฟล์ไม่สำเร็จ: ${uploadRes.error.message}`);
+    }
 
-    const upScanned = await saveImportedScannedBarcodes({ rows: scannedPayload });
+    // 3) บันทึกทีละชุด เพื่อไม่ให้ request เดียวชนเพดานขนาดและเวลาของ Vercel
+    const nowIso = new Date().toISOString();
+    let savedRows = 0;
 
-    if (upScanned?.serverError) {
-        throw new Error(`บันทึก scanned_barcodes ไม่สำเร็จ: ${upScanned.serverError}`);
+    for (const batch of chunkItems(rows, IMPORT_BATCH_SIZE)) {
+        const products: Omit<Product, "created_at" | "updated_at">[] = batch.map((r) => ({
+            id: r.product_id,
+            method: ADD_PRODUCT_METHOD.EXCEL,
+            product_type_id: r.product_type_id ?? null,
+            bill_id: r.bill_id != null ? String(r.bill_id) : null, // ✅ number -> string
+            updated_by_user_id: r.user_id ?? null,
+        }));
+
+        // **ตาม schema ของคุณ unique(product_id)** → ใช้ onConflict: "product_id"
+        const scannedBarcodes = batch.map((r) => {
+            const years = r.expire_years ?? 2;
+            const expired = new Date();
+            expired.setFullYear(expired.getFullYear() + years);
+
+            return {
+                product_id: r.product_id,
+                user_id: r.user_id ?? null,
+                created_date: nowIso,
+                expired_date: expired.toISOString().slice(0, 10), // date
+                product_score_option_id: r.product_score_option_id ?? 1,
+                point_multiplier: r.point_multiplier ?? null,
+            };
+        });
+
+        const result = await saveImportBatch({ products, scannedBarcodes });
+
+        if (!result || result.serverError || result.validationErrors) {
+            throw new Error(
+                `บันทึกไปแล้ว ${savedRows} จาก ${rows.length} แถว แล้วเกิดข้อผิดพลาด: ${
+                    result?.serverError ?? "ข้อมูลในไฟล์ไม่ถูกต้อง"
+                } (นำเข้าไฟล์เดิมซ้ำได้ แถวที่บันทึกแล้วจะถูกข้าม)`
+            );
+        }
+
+        savedRows += batch.length;
+        onProgress?.({ savedRows, totalRows: rows.length });
     }
 
     return {

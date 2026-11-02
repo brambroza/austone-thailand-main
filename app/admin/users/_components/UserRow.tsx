@@ -52,16 +52,16 @@ export default function UserRow({
   };
 
   return (
-    <TableRow key={user.user_id} className="hover:bg-muted/50">
-      <TableCell className="font-medium">{user.full_name ?? "ไม่ระบุ"}</TableCell>
+    <TableRow key={user.user_id}>
+      <TableCell className="font-medium text-gray-900">{user.full_name ?? "ไม่ระบุ"}</TableCell>
       <TableCell>{user.store_name || "ไม่ระบุ"}</TableCell>
       <TableCell>{user.agent_store_name || "ไม่ระบุ"}</TableCell>
       <TableCell>{user.phone_number ?? "ไม่ระบุ"}</TableCell>
       <TableCell>{user.province ?? "ไม่ระบุ"}</TableCell>
-      <TableCell>{user.total_score?.toLocaleString("th-TH") ?? 0}</TableCell>
+      <TableCell className="text-right tabular-nums">{user.total_score?.toLocaleString("th-TH") ?? 0}</TableCell>
 
       <TableCell>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Scan All Barcode + Confirm */}
           <AlertDialog open={openScanConfirm} onOpenChange={setOpenScanConfirm}>
           {/*   <div className="relative inline-flex">

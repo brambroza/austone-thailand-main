@@ -6,19 +6,20 @@ import { Input } from "@/components/ui/input";
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { useFetchRewards } from "@/hooks/fetch-data/useFetchRewards";
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RewardsForm } from "./_components/rewards-form";
 import { RewardsTable } from "./_components/rewards-table";
 import type { Reward } from "./_components/types";
 import { filterRewards, serializeRewards } from "./_helper";
 import { useManageRewardAction } from "./_hooks";
-import { Card } from "@/components/ui/card";
+import { TablePagination } from "@/components/ui/pagination";
+import { useTablePagination } from "@/hooks/useTablePagination";
 
 export default function RewardsPage() {
   const {
     data: fetchedRewards,
     refetch: onRefreshRewards,
-    isFetching,
+    isLoading: isLoadingRewards,
     isError,
   } = useFetchRewards();
 
@@ -52,7 +53,12 @@ export default function RewardsPage() {
     }
   }, [isError]);
 
-  const filteredRewards = filterRewards(rewards, searchQuery);
+  const filteredRewards = useMemo(
+    () => filterRewards(rewards, searchQuery),
+    [rewards, searchQuery]
+  );
+
+  const { pageRows, pagination } = useTablePagination(filteredRewards, searchQuery);
 
   const handleEdit = async (reward: Reward) => {
     try {
@@ -96,15 +102,15 @@ export default function RewardsPage() {
         </Button>
       </div>
 
-      <Card className="p-6">
+      <div>
         <RewardsTable
-          rewards={filteredRewards}
+          rewards={pageRows}
           onEdit={handleEdit}
           onToggleStatus={handleToggleStatus}
           onToggleAlertEnable={handleToggleAlertEnable}
-          
         />
-      </Card>
+        <TablePagination pagination={pagination} />
+      </div>
 
       <RewardsForm
         isOpen={isFormOpen}
@@ -118,7 +124,7 @@ export default function RewardsPage() {
         loadingMessage={loadingMessage}
       />
 
-      <LoadingModal isOpen={isFetching} message="กำลังโหลดข้อมูล..." />
+      <LoadingModal isOpen={isLoadingRewards} message="กำลังโหลดข้อมูล..." />
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TablePagination } from "@/components/ui/pagination";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import {
   Table,
   TableBody,
@@ -13,7 +15,7 @@ import {
 import { searchClaimedRewardHistories } from "@/features/claimed-reward-history/helpers/claimed-reward-histories.helper";
 import { ClaimedRewardHistory } from "@/models/reward.model";
 import { ArrowUpDown, Search } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 const formatNumber = (num: number) => {
   return num.toLocaleString("th-TH");
 };
@@ -28,18 +30,22 @@ export function RedemptionsTable({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  const filteredRedemptions = searchClaimedRewardHistories(
-    searchQuery,
-    claimedRewardHistories ?? []
+  const sortedRedemptions = useMemo(
+    () =>
+      searchClaimedRewardHistories(searchQuery, claimedRewardHistories ?? []).sort(
+        (a, b) => {
+          const scoreA = a.rewards.required_score;
+          const scoreB = b.rewards.required_score;
+          return sortDirection === "asc" ? scoreA - scoreB : scoreB - scoreA;
+        }
+      ),
+    [searchQuery, claimedRewardHistories, sortDirection]
   );
 
-  const sortedRedemptions = filteredRedemptions?.sort((a, b) => {
-    const scoreA = a.rewards.required_score;
-    const scoreB = b.rewards.required_score;
-    return sortDirection === "asc" ? scoreA - scoreB : scoreB - scoreA;
-  });
-
-  if (!sortedRedemptions) return <h3>ไม่พบข้อมูล</h3>;
+  const { pageRows, pagination } = useTablePagination(
+    sortedRedemptions,
+    `${searchQuery}|${sortDirection}`
+  );
 
   return (
     <div className="space-y-4">
@@ -52,7 +58,7 @@ export function RedemptionsTable({
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
-      <div className="rounded-md border">
+      <div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -76,8 +82,8 @@ export function RedemptionsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedRedemptions?.length > 0 ? (
-              sortedRedemptions.map((redemption) => (
+            {pageRows.length > 0 ? (
+              pageRows.map((redemption) => (
                 <TableRow key={redemption.id}>
                   <TableCell>{redemption.users.full_name}</TableCell>
                   <TableCell>
@@ -101,7 +107,7 @@ export function RedemptionsTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   ไม่พบข้อมูล
                 </TableCell>
               </TableRow>
@@ -109,6 +115,7 @@ export function RedemptionsTable({
           </TableBody>
         </Table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

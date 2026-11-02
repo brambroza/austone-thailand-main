@@ -2,10 +2,11 @@
 import Loading from "@/app/loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Pagination } from "@/components/ui/pagination";
+import { TablePagination } from "@/components/ui/pagination";
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -22,6 +23,14 @@ import {
   Plus,
   Search,
 } from "lucide-react";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePageControls } from "@/hooks/useTablePagination";
+import {
+  DEFAULT_PAGE_SIZE,
+  MAX_ALL_ROWS,
+  PAGE_SIZE_ALL,
+  getPaginationInfo,
+} from "@/lib/utils/pagination.util";
 import { useEffect, useState } from "react";
 import {
   DropdownMenu,
@@ -31,21 +40,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const ITEMS_PER_PAGE = 10;
-
-type SortDirection = "asc" | "desc" | null;
+type SortDirection = "asc" | "desc";
 type StatusFilterType = BILL_STATUS | "ALL";
-type SortField = "document_date" | "created_at" | null;
+type SortField = "document_date" | "created_at";
 
 export default function BillsPage() {
-  const {
-    data: bills,
-    isFetching: isFetchingBills,
-    refetch: onRefreshBillData,
-  } = useFetchBillsWithProductsAndProductTypesAndProductTypeConstraints();
-
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [sortField, setSortField] = useState<SortField>("document_date");
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>("ALL");
@@ -53,42 +53,38 @@ export default function BillsPage() {
   const [isOpenCreateNewBillModal, setIsOpenCreateNewBillModal] =
     useState(false);
 
-  // Filter bills by search query and status
-  const filteredBills = bills?.filter(
-    (bill) =>
-      (statusFilter === "ALL" || bill.status === statusFilter) &&
-      (bill.bill_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bill.customer_fullname
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (bill.customer_email &&
-          bill.customer_email
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())))
+  const debouncedSearch = useDebouncedValue(searchQuery.trim());
+
+  // กลับหน้าแรกเมื่อคำค้น ตัวกรอง หรือการเรียงลำดับเปลี่ยน
+  const { page, pageSize, setPage, setPageSize } = usePageControls(
+    [debouncedSearch, statusFilter, sortDirection, sortField].join("|")
   );
 
-  // Sort bills by selected field and direction
-  const sortedBills = [...(filteredBills || [])].sort((a, b) => {
-    if (!sortDirection || !sortField) return 0;
+  const {
+    data,
+    isLoading: isLoadingBills,
+    refetch: onRefreshBillData,
+  } = useFetchBillsWithProductsAndProductTypesAndProductTypeConstraints(
+    {
+      search: debouncedSearch,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      sortField,
+      sortDirection,
+    },
+    page,
+    pageSize
+  );
 
-    if (sortField === "document_date") {
-      const dateA = new Date(a.document_date).getTime();
-      const dateB = new Date(b.document_date).getTime();
-      return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
-    } else if (sortField === "created_at") {
-      const dateA = new Date(a.created_at || 0).getTime();
-      const dateB = new Date(b.created_at || 0).getTime();
-      return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
+  const bills = data?.rows ?? [];
+  const totalBills = data?.total ?? 0;
+  const paginationInfo = getPaginationInfo(totalBills, page, pageSize);
+
+  // ตัวกรองใหม่อาจได้แถวเกินเพดาน จึงถอยกลับไปแบ่งหน้าปกติ
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && totalBills > MAX_ALL_ROWS) {
+      setPageSize(DEFAULT_PAGE_SIZE);
     }
-
-    return 0;
-  });
-
-  const totalPages = Math.ceil((sortedBills?.length || 0) / ITEMS_PER_PAGE);
-  const paginatedBills = sortedBills?.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  }, [totalBills, pageSize, setPageSize]);
 
   // Toggle sort direction or change sort field
   const handleSort = (field: SortField) => {
@@ -99,11 +95,6 @@ export default function BillsPage() {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     }
   };
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, statusFilter, sortDirection, sortField]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -139,7 +130,7 @@ export default function BillsPage() {
     );
   };
 
-  if (isFetchingBills) {
+  if (isLoadingBills) {
     return <Loading />;
   }
 
@@ -201,7 +192,7 @@ export default function BillsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -235,30 +226,24 @@ export default function BillsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedBills?.map((bill) => (
+            {bills.map((bill) => (
               <BillRow key={bill.id} bill={bill} />
             ))}
-            {(paginatedBills?.length === 0 || !paginatedBills) && (
+            {bills.length === 0 && (
               <TableRow>
-                <TableHead
-                  colSpan={7}
-                  className="text-center py-10 text-gray-500"
-                >
+                <TableCell colSpan={7} className="h-32 text-center text-gray-500">
                   ไม่พบข้อมูลบิล
-                </TableHead>
+                </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      )}
+      <TablePagination
+        pagination={{ ...paginationInfo, pageSize, setPage, setPageSize }}
+        allowAll={totalBills <= MAX_ALL_ROWS}
+      />
     </div>
   );
 }

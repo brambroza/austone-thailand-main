@@ -1,6 +1,7 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
+import { TablePagination } from "@/components/ui/pagination";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { useFetchUserInfo } from "@/hooks/fetch-data/useFetchUserInfo";
 import { useParams } from "next/navigation";
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFetchScannedBarcodeHistoriesByUserId } from "@/hooks/fetch-data/useFetchScannedBarcodeHistories";
 import DeleteScannedBarcodeButton from "@/features/scanned-barcodes/components/DeleteScannedBarcodeButton";
 type SortOrder = "asc" | "desc";
@@ -25,13 +26,13 @@ type SortOrder = "asc" | "desc";
 export default function UserScannedBarcodesPage() {
   const { userId } = useParams();
 
-  const { data: userInfo, isFetching: isFetchingUser } = useFetchUserInfo(
+  const { data: userInfo, isLoading: isLoadingUser } = useFetchUserInfo(
     userId as string
   );
 
   const {
     data: scannedBarcodeHistories,
-    isFetching: isFetchingScannedBarcodeHistories,
+    isLoading: isLoadingScannedBarcodeHistories,
     refetch: onRefreshScannedBarcodes,
   } = useFetchScannedBarcodeHistoriesByUserId({
     user_id: userId as string,
@@ -39,11 +40,17 @@ export default function UserScannedBarcodesPage() {
 
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
-  const sortedRewards = scannedBarcodeHistories?.sort((a, b) => {
-    const dateA = new Date(a.created_date).getTime();
-    const dateB = new Date(b.created_date).getTime();
-    return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-  });
+  const sortedRewards = useMemo(
+    () =>
+      [...(scannedBarcodeHistories ?? [])].sort((a, b) => {
+        const dateA = new Date(a.created_date).getTime();
+        const dateB = new Date(b.created_date).getTime();
+        return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+      }),
+    [scannedBarcodeHistories, sortOrder]
+  );
+
+  const { pageRows, pagination } = useTablePagination(sortedRewards, sortOrder);
 
   const toggleSortOrder = () => {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -63,8 +70,9 @@ export default function UserScannedBarcodesPage() {
         </h1>
       </div>
 
-      <Card className="p-6">
-        {sortedRewards && sortedRewards.length > 0 ? (
+      <div>
+        {sortedRewards.length > 0 ? (
+          <>
           <Table>
             <TableHeader>
               <TableRow>
@@ -73,7 +81,7 @@ export default function UserScannedBarcodesPage() {
                 <TableHead>
                   <Button
                     variant="ghost"
-                    className="h-8 p-0 hover:bg-transparent"
+                    className="h-8 p-0 text-xs font-medium text-gray-500 hover:bg-transparent"
                     onClick={toggleSortOrder}
                   >
                     วันที่สะสม
@@ -84,10 +92,11 @@ export default function UserScannedBarcodesPage() {
                     )}
                   </Button>
                 </TableHead>
+                <TableHead className="w-[60px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedRewards.map((history) => (
+              {pageRows.map((history) => (
                 <TableRow key={history.id}>
                   <TableCell>{history.product_id}</TableCell>
                   <TableCell>{history.product_score_option.score}</TableCell>
@@ -110,15 +119,17 @@ export default function UserScannedBarcodesPage() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination pagination={pagination} />
+          </>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-gray-500">
             ไม่พบประวัติการสะสมคะแนน
           </div>
         )}
-      </Card>
+      </div>
 
       <LoadingModal
-        isOpen={isFetchingUser || isFetchingScannedBarcodeHistories}
+        isOpen={isLoadingUser || isLoadingScannedBarcodeHistories}
         message="กำลังโหลดข้อมูล..."
       />
     </div>

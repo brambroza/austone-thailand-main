@@ -1,14 +1,11 @@
 "use client";
 
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
-
 import { DatePicker } from "@/app/components/ui/date-picker";
 import Loading from "@/app/loading";
 import { THAILAND_PROVINCES } from "@/app/user/profile/_constant";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { TablePagination } from "@/components/ui/pagination";
 import {
     Select,
     SelectContent,
@@ -26,9 +23,10 @@ import {
 } from "@/components/ui/table";
 import { useFetchUserPointAccumulateHistories } from "@/features/scanned-barcodes/hooks/queries/useFetchUserPointHistories";
 import { UserPointAccumulateHistory } from "@/features/scanned-barcodes/types/user-point-history.type";
+import { useTablePagination } from "@/hooks/useTablePagination";
 import { monthIndexToMonthName } from "@/lib/utils/date.util";
 import { ArrowUpDown, Download } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type TimeFilter = "monthly" | "quarterly" | "yearly";
 type SortField = "total_points" | "used_points" | "available_points";
@@ -192,10 +190,10 @@ const PointHistoryTable = ({
         children: React.ReactNode;
     }) => (
         <TableHead
-            className="cursor-pointer hover:bg-gray-50"
+            className="cursor-pointer text-right hover:text-gray-900"
             onClick={() => onSort(field)}
         >
-            <div className="flex items-center">
+            <div className="flex items-center justify-end">
                 {children}
                 {getSortIcon(field)}
             </div>
@@ -226,11 +224,11 @@ const PointHistoryTable = ({
                         <TableCell>{history.agent_store_name ?? "-"}</TableCell>
                         <TableCell>{history.phone_number ?? "-"}</TableCell>
                         <TableCell>{history.province ?? "-"}</TableCell>
-                        <TableCell>{history.bf_points ?? 0}</TableCell>
-                        <TableCell>{history.accumulate_points ?? 0}</TableCell>
-                        <TableCell>{history.total_points ?? 0}</TableCell>
-                        <TableCell>{history.used_points ?? 0}</TableCell>
-                        <TableCell>{history.available_points ?? 0}</TableCell>
+                        <TableCell className="text-right tabular-nums">{Number(history.bf_points ?? 0).toLocaleString("th-TH")}</TableCell>
+                        <TableCell className="text-right tabular-nums">{Number(history.accumulate_points ?? 0).toLocaleString("th-TH")}</TableCell>
+                        <TableCell className="text-right tabular-nums">{Number(history.total_points ?? 0).toLocaleString("th-TH")}</TableCell>
+                        <TableCell className="text-right tabular-nums">{Number(history.used_points ?? 0).toLocaleString("th-TH")}</TableCell>
+                        <TableCell className="text-right tabular-nums">{Number(history.available_points ?? 0).toLocaleString("th-TH")}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>
@@ -321,7 +319,7 @@ const PointHistoriesPage = () => {
         getDateRange();
     const years = Array.from({ length: 5 }, (_, i) => selectedYear - 2 + i);
 
-    const { data: userPointHistories, isFetching: isFetchingUserPointHistories } =
+    const { data: userPointHistories, isLoading: isLoadingUserPointHistories } =
         useFetchUserPointAccumulateHistories({
             startDate: filteredStartDate,
             endDate: filteredEndDate,
@@ -337,7 +335,9 @@ const PointHistoriesPage = () => {
         }));
     };
 
-    const filteredAndSortedHistories = userPointHistories
+    const filteredAndSortedHistories = useMemo(
+        () =>
+            userPointHistories
         ? userPointHistories
             .filter((history) => {
                 const matchesProvince =
@@ -364,7 +364,21 @@ const PointHistoriesPage = () => {
                     ? aValue - bValue
                     : bValue - aValue;
             })
-        : [];
+        : [],
+        [
+            userPointHistories,
+            selectedProvince,
+            storeNameFilter,
+            agentStoreNameFilter,
+            sortConfig,
+        ]
+    );
+
+    // export ยังใช้ทุกแถวที่กรองแล้ว ตัดหน้าเฉพาะตอนแสดงผล
+    const { pageRows, pagination } = useTablePagination(
+        filteredAndSortedHistories,
+        [selectedProvince, storeNameFilter, agentStoreNameFilter, sortConfig.field, sortConfig.direction].join("|")
+    );
 
     /*   function handleExportExcel() { 
           const csvContent = [
@@ -422,7 +436,13 @@ const PointHistoriesPage = () => {
           link.remove();
       } */
 
-    function handleExportExcel() {
+    async function handleExportExcel() {
+        // โหลด library ตอนกด export เพราะมีขนาดใหญ่และทำให้หน้าเปิดช้า
+        const [XLSX, { saveAs }] = await Promise.all([
+            import("xlsx"),
+            import("file-saver"),
+        ]);
+
         // 1) แปลงข้อมูลเป็น array ของ object (หัวคอลัมน์เป็นภาษาไทย)
         const rows = filteredAndSortedHistories.map((h) => ({
             "ชื่อผู้ใช้": h.full_name ?? "-",
@@ -503,7 +523,7 @@ const PointHistoriesPage = () => {
     }
 
 
-    if (isFetchingUserPointHistories)
+    if (isLoadingUserPointHistories)
         return <Loading message="กำลังดึงข้อมูลประวัติการแลกคะแนน..." />;
 
     if (!userPointHistories) return <div>ไม่พบข้อมูล</div>;
@@ -577,15 +597,14 @@ const PointHistoriesPage = () => {
                 />
             </div>
 
-            <Card className="p-6">
-                <div className="rounded-md border">
-                    <PointHistoryTable
-                        userPointHistories={filteredAndSortedHistories}
-                        sortConfig={sortConfig}
-                        onSort={handleSort}
-                    />
-                </div>
-            </Card>
+            <div>
+                <PointHistoryTable
+                    userPointHistories={pageRows}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                />
+                <TablePagination pagination={pagination} />
+            </div>
         </div>
     );
 };

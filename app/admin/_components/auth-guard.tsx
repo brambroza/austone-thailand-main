@@ -84,14 +84,11 @@ export default function AuthGuard({ children }: IAuthGuardProps) {
 
 "use client";
 
-import { getLineUser } from "@/actions/auth.action";
-import { fetchUserInfo } from "@/actions/queries/users.action";
-import { SafeActionUtil } from "@/lib/utils/safe-action.util";
-import { ServerActionResponse } from "@/models/api.model";
-import { UserInfoView } from "@/models/user.model";
-import { useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { useFetchUserInfo } from "@/hooks/fetch-data/useFetchUserInfo";
 import { useUser } from "@/hooks/useUser";
+import { getUserId } from "@/lib/utils/user.util";
+import { useRouter } from "next/navigation";
+import { ReactNode, useEffect } from "react";
 
 const ALLOWED_ROLES = ["ADMIN", "BILL_MANAGEMENT"];
 
@@ -102,52 +99,18 @@ interface IAuthGuardProps {
 export default function AuthGuard({ children }: IAuthGuardProps) {
   const router = useRouter();
   const { user, isLoadingUser } = useUser();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // ใช้ query เดียวกับเมนูด้านข้าง จึงไม่ยิงซ้ำและไม่ต้องรอคิว server action
+  const { data: userInfo, isLoading: isLoadingUserInfo } = useFetchUserInfo(
+    getUserId(user)
+  );
+
+  const isChecking = isLoadingUser || isLoadingUserInfo;
+  const isAuthorized = ALLOWED_ROLES.includes(userInfo?.role_title ?? "");
 
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        if (isLoadingUser) return; // ⏳ รอให้โหลด user เสร็จก่อน
-
-        let userInfoResult;
-
-        // ✅ ตรวจสอบผู้ใช้จาก LINE
-        const lineUser = await getLineUser();
-
-        if (lineUser) {
-          userInfoResult = await fetchUserInfo({ user_id: lineUser.sub });
-        }
-
-        // ✅ ตรวจสอบผู้ใช้จาก Supabase
-        if (user?.id) {
-          userInfoResult = await fetchUserInfo({ user_id: user.id });
-        }
-
-        // ❌ ไม่มีผู้ใช้ทั้งคู่
-        if (!lineUser && !user?.id) {
-          router.replace("/");
-          return;
-        }
-
-        const { data: userInfo } =
-          SafeActionUtil.getData<ServerActionResponse<UserInfoView>>(
-            userInfoResult
-          );
-
-        if (!ALLOWED_ROLES.includes(userInfo?.role_title ?? "")) {
-          router.replace("/");
-          return;
-        }
-
-        setIsAuthorized(true);
-      } catch (error) {
-        console.error("Auth check failed:", error);
-        router.replace("/");
-      }
-    }
-
-    checkAuth();
-  }, [router, user?.id, isLoadingUser]);
+    if (!isChecking && !isAuthorized) router.replace("/");
+  }, [router, isChecking, isAuthorized]);
 
   if (!isAuthorized) {
     return (

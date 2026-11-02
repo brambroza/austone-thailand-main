@@ -1,5 +1,17 @@
+import { apiGet } from "@/lib/utils/api-client.util";
 import { useQuery } from "@tanstack/react-query";
-import { getUserPointAccumelateHistories, getUserPointHistories } from "../../actions/get-user-point-histories.action";
+import {
+  UserPointAccumulateHistory,
+  UserPointHistory,
+} from "../../types/user-point-history.type";
+
+/** แปลงช่วงวันที่เป็น query string ของรายงานคะแนน */
+function toDateParams(startDate: Date, endDate: Date) {
+  return {
+    startDate: startDate.toISOString().split("T")[0],
+    endDate: endDate.toISOString().split("T")[0],
+  };
+}
 
 export function useFetchUserPointHistories({
   startDate,
@@ -10,17 +22,14 @@ export function useFetchUserPointHistories({
 }) {
   return useQuery({
     queryKey: ["user-point-histories", startDate, endDate],
-    queryFn: async () => {
-      const userPointHistories = await getUserPointHistories(
-        startDate.toISOString().split("T")[0],
-        endDate.toISOString().split("T")[0]
-      );
-
-      return userPointHistories;
-    },
+    queryFn: () =>
+      apiGet<UserPointHistory[]>("/api/admin/point-histories", {
+        report: "redeemed",
+        ...toDateParams(startDate, endDate),
+      }),
+    refetchOnWindowFocus: false,
   });
 }
-
 
 export function useFetchUserPointAccumulateHistories({
   startDate,
@@ -31,14 +40,11 @@ export function useFetchUserPointAccumulateHistories({
 }) {
   return useQuery({
     queryKey: ["user-point-accumulate-histories", startDate, endDate],
-    queryFn: async () => {
-      const userPointHistories = await getUserPointAccumelateHistories(
-        startDate.toISOString().split("T")[0],
-        endDate.toISOString().split("T")[0]
-      );
-
-      return userPointHistories;
-    },
+    queryFn: () =>
+      apiGet<UserPointAccumulateHistory[]>("/api/admin/point-histories", {
+        report: "accumulated",
+        ...toDateParams(startDate, endDate),
+      }),
+    refetchOnWindowFocus: false,
   });
 }
-
