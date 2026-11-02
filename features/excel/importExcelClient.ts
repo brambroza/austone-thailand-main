@@ -1,0 +1,153 @@
+"use client";
+
+import ExcelJS from "exceljs";
+import { supabaseAnonClient } from "@/lib/anon-supabase";
+import { ADD_PRODUCT_METHOD } from "@/models/enums/product.enum";
+import { addMultipleProductsAction } from "../products/actions/products.action";
+import {
+    createExcelImportUpload,
+    saveImportedScannedBarcodes,
+} from "./actions/import-excel.action";
+import {
+    Product
+} from "@/models/product.model";
+
+type ImportRow = {
+    product_id: string;
+    user_id?: string;
+    product_type_id?: number | null;
+    bill_id?: number | null;
+    method?: string | null;
+    product_score_option_id?: number | null;
+    expire_years?: number | null;
+    point_multiplier?: number | null;
+};
+
+function toInt(v: any): number | null {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+function asString(v: any) {
+    return String(v ?? "").trim();
+}
+
+export async function importExcelToSupabaseClientOnly(file: File) {
+    const buffer = await file.arrayBuffer();
+
+    // 1) ขอ signed URL จาก Server Action ซึ่งยืนยันได้ทั้ง LINE และอีเมล
+    const bucket = "excel-imports";
+    const path = `users_import/${Date.now()}_${file.name}`;
+    const signedUpload = await createExcelImportUpload({ path });
+
+    if (!signedUpload?.data) {
+        throw new Error(signedUpload?.serverError ?? "ไม่สามารถเตรียมการอัปโหลดไฟล์ได้");
+    }
+
+    const uploadRes = await supabaseAnonClient.storage.from(bucket).uploadToSignedUrl(
+        path,
+        signedUpload.data.token,
+        buffer,
+        {
+        contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        upsert: false,
+        }
+    );
+
+    if (uploadRes.error) {
+        throw new Error(`อัปโหลดไฟล์ไม่สำเร็จ: ${uploadRes.error.message}`);
+    }
+
+    // 2) parse excel
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+
+    const ws = wb.worksheets[0];
+    if (!ws) throw new Error("ไฟล์ Excel ไม่มีชีท");
+
+    const header = ws.getRow(1).values as any[];
+    const colIndex: Record<string, number> = {};
+    header.forEach((v, i) => {
+        const key = asString(v);
+        if (key) colIndex[key] = i;
+    });
+
+    if (!colIndex["product_id"]) {
+        throw new Error("Template ไม่ถูกต้อง: ต้องมีคอลัมน์ product_id");
+    }
+
+    const rows: ImportRow[] = [];
+
+    ws.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+
+        const product_id = asString(row.getCell(colIndex["product_id"]).value);
+        if (!product_id) return;
+
+        const user_id = asString(row.getCell(colIndex["user_id"])?.value) || undefined;
+
+        rows.push({
+            product_id,
+            user_id,
+            product_type_id: toInt(row.getCell(colIndex["product_type_id"])?.value),
+            bill_id: toInt(row.getCell(colIndex["bill_id"])?.value),
+            method: asString(row.getCell(colIndex["method"])?.value) || null,
+            product_score_option_id: toInt(row.getCell(colIndex["product_score_option_id"])?.value) ?? 1,
+            expire_years: toInt(row.getCell(colIndex["expire_years"])?.value) ?? 2,
+            point_multiplier: toInt(row.getCell(colIndex["point_multiplier"])?.value),
+        });
+    });
+
+    if (!rows.length) throw new Error("ไม่มีข้อมูลให้ import");
+
+    // 3) upsert products (onConflict: id)
+    const nowIso = new Date().toISOString();
+    const productsPayload: Omit<Product, "created_at" | "updated_at">[] = rows.map((r) => ({
+        id: r.product_id,
+        method: ADD_PRODUCT_METHOD.EXCEL,
+        product_type_id: r.product_type_id ?? null,
+        bill_id: r.bill_id != null ? String(r.bill_id) : null, // ✅ number -> string
+        updated_by_user_id: r.user_id ?? null,
+    }));
+
+
+    /* const upProducts = await supabaseAnonClient
+        .from("products")
+        .upsert(productsPayload, { onConflict: "id" }); */
+
+    const upProducts = await addMultipleProductsAction(productsPayload);
+
+    if (upProducts.error) {
+        throw new Error(`บันทึก products ไม่สำเร็จ: ${upProducts.error}`);
+    }
+
+    // 4) upsert scanned_barcodes
+    // **ตาม schema ของคุณ unique(product_id)** → ใช้ onConflict: "product_id"
+    const scannedPayload = rows.map((r) => {
+        const years = r.expire_years ?? 2;
+        const expired = new Date();
+        expired.setFullYear(expired.getFullYear() + years);
+
+        return {
+            product_id: r.product_id,
+            user_id: r.user_id ?? null,
+            created_date: nowIso,
+            expired_date: expired.toISOString().slice(0, 10), // date
+            product_score_option_id: r.product_score_option_id ?? 1,
+            point_multiplier: r.point_multiplier ?? null,
+        };
+    });
+
+    const upScanned = await saveImportedScannedBarcodes({ rows: scannedPayload });
+
+    if (upScanned?.serverError) {
+        throw new Error(`บันทึก scanned_barcodes ไม่สำเร็จ: ${upScanned.serverError}`);
+    }
+
+    return {
+        uploadedPath: path,
+        imported: rows.length,
+    };
+}
