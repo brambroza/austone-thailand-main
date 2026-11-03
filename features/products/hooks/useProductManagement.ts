@@ -12,6 +12,7 @@ import {
   getPaginationInfo,
 } from "@/lib/utils/pagination.util";
 import { Product, ProductWithScanner } from "@/models/product.model";
+import { ProductType } from "../types/product.type";
 import {
   keepPreviousData,
   useQuery,
@@ -25,9 +26,16 @@ import {
   updateProduct,
 } from "../actions/products.action";
 import { convertProductCSVtoProduct } from "../helpers/product.helper";
+import {
+  PRODUCT_EXPORT_MAX_ROWS,
+  buildProductExportRows,
+  downloadProductsExcel,
+} from "../helpers/product-export.helper";
 
 const PRODUCT_QUERY_KEY = "admin products";
 const CSV_BATCH_SIZE = 1000;
+// API รับได้สูงสุด 1000 แถวต่อ request
+const EXPORT_BATCH_SIZE = 1000;
 
 /** อ่านสินค้าหนึ่งหน้าจาก API */
 function fetchProductPage(search: string, page: number, pageSize: number) {
@@ -38,7 +46,12 @@ function fetchProductPage(search: string, page: number, pageSize: number) {
   });
 }
 
-export function useProductManagement() {
+/**
+ * จัดการตารางสินค้าในหน้า admin: อ่านทีละหน้า เพิ่ม แก้ ลบ นำเข้า และส่งออก Excel
+ *
+ * @param productTypes - ประเภทสินค้า ใช้แสดงชื่อประเภทในไฟล์ Excel
+ */
+export function useProductManagement(productTypes: ProductType[] = []) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery.trim());
@@ -53,6 +66,8 @@ export function useProductManagement() {
   const [importProgress, setImportProgress] = useState("");
   const [deleteConfirmProduct, setDeleteConfirmProduct] =
     useState<ProductWithScanner | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState("");
 
   const { page, pageSize, setPage, setPageSize } =
     usePageControls(debouncedSearch);
@@ -183,6 +198,65 @@ export function useProductManagement() {
     }
   };
 
+  /** ส่งออกสินค้าทุกแถวที่ตรงกับคำค้นปัจจุบัน ไม่ใช่แค่หน้าที่แสดง */
+  const handleExportExcel = async () => {
+    // ใช้คำค้นที่พิมพ์ล่าสุด เผื่อกดก่อน debounce ทำงาน
+    const search = searchQuery.trim();
+
+    try {
+      setIsExporting(true);
+      setExportProgress("กำลังนับจำนวนสินค้า");
+
+      const first = await fetchProductPage(search, 1, EXPORT_BATCH_SIZE);
+
+      if (first.total === 0) {
+        Alert.error("ไม่พบสินค้าที่ตรงกับตัวกรอง");
+        return;
+      }
+
+      if (first.total > PRODUCT_EXPORT_MAX_ROWS) {
+        Alert.error(
+          `พบ ${first.total.toLocaleString("th-TH")} รายการ ส่งออกได้ครั้งละไม่เกิน ${PRODUCT_EXPORT_MAX_ROWS.toLocaleString("th-TH")} รายการ กรุณาค้นหาให้แคบลง`
+        );
+        return;
+      }
+
+      const rows: ProductWithScanner[] = [...first.rows];
+
+      for (
+        let batchPage = 2;
+        rows.length < first.total;
+        batchPage += 1
+      ) {
+        setExportProgress(
+          `กำลังโหลด ${rows.length.toLocaleString("th-TH")} / ${first.total.toLocaleString("th-TH")} รายการ`
+        );
+
+        const result = await fetchProductPage(search, batchPage, EXPORT_BATCH_SIZE);
+        if (result.rows.length === 0) break;
+        rows.push(...result.rows);
+      }
+
+      setExportProgress("กำลังสร้างไฟล์ Excel");
+
+      const productTypeTitles = new Map(
+        productTypes.map((productType) => [productType.id, productType.title])
+      );
+
+      await downloadProductsExcel(
+        buildProductExportRows(rows, productTypeTitles),
+        search
+      );
+
+      Alert.success(`ส่งออก ${rows.length.toLocaleString("th-TH")} รายการสำเร็จ`);
+    } catch (error: any) {
+      Alert.error(error.message ?? "ส่งออก Excel ไม่สำเร็จ");
+    } finally {
+      setIsExporting(false);
+      setExportProgress("");
+    }
+  };
+
   return {
     products: data?.rows ?? [],
     pagination: { ...paginationInfo, pageSize, setPage, setPageSize },
@@ -205,5 +279,8 @@ export function useProductManagement() {
     handleUpdateProduct,
     handleAddProduct,
     handleImportCSV,
+    isExporting,
+    exportProgress,
+    handleExportExcel,
   };
 }

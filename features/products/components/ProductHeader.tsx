@@ -2,13 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Upload } from "lucide-react";
+import { Download, Loader2, Plus, Search, Upload } from "lucide-react";
 
 interface ProductHeaderProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   onImportClick: () => void;
   onAddClick: () => void;
+  onExportClick: () => void;
+  isExporting: boolean;
+  exportProgress: string;
 }
 
 export default function ProductHeader({
@@ -16,6 +19,9 @@ export default function ProductHeader({
   onSearchChange,
   onImportClick,
   onAddClick,
+  onExportClick,
+  isExporting,
+  exportProgress,
 }: ProductHeaderProps) {
   return (
     <div className="flex items-center justify-between">
@@ -28,7 +34,24 @@ export default function ProductHeader({
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
+        {isExporting && exportProgress && (
+          <span className="text-sm text-muted-foreground">{exportProgress}</span>
+        )}
+        <Button
+          variant="outline"
+          onClick={onExportClick}
+          disabled={isExporting}
+          className="gap-2"
+          title="ส่งออกสินค้าทุกแถวที่ตรงกับคำค้น"
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          ส่งออก Excel
+        </Button>
         <Button
           variant="outline"
           onClick={onImportClick}

@@ -33,6 +33,27 @@ export default function ProductPage() {
   const [reloadKeys, setReloadKeys] = useState(0);
 
 
+
+  // Product Type Management
+  const {
+    productTypes,
+    productTypesPromotions,
+    isLoading: isLoadingProductTypes,
+    searchQuery: productTypeSearchQuery,
+    setSearchQuery: setProductTypeSearchQuery,
+    isAddModalOpen: isProductTypeAddModalOpen,
+    setIsAddModalOpen: setProductTypeAddModalOpen,
+    editingProductType,
+    setEditingProductType,
+    deleteConfirmProductType,
+    setDeleteConfirmProductType,
+    isProcessing,
+    handleAddProductType,
+    handleUpdateProductType,
+    handleDeleteProductType,
+    handleUpdateProductTypePromotions,
+  } = useProductTypeManagement();
+
   const {
     products,
     pagination: productPagination,
@@ -55,27 +76,10 @@ export default function ProductPage() {
     handleUpdateProduct,
     handleAddProduct,
     handleImportCSV,
-  } = useProductManagement();
-
-  // Product Type Management
-  const {
-    productTypes,
-    productTypesPromotions,
-    isLoading: isLoadingProductTypes,
-    searchQuery: productTypeSearchQuery,
-    setSearchQuery: setProductTypeSearchQuery,
-    isAddModalOpen: isProductTypeAddModalOpen,
-    setIsAddModalOpen: setProductTypeAddModalOpen,
-    editingProductType,
-    setEditingProductType,
-    deleteConfirmProductType,
-    setDeleteConfirmProductType,
-    isProcessing,
-    handleAddProductType,
-    handleUpdateProductType,
-    handleDeleteProductType,
-    handleUpdateProductTypePromotions,
-  } = useProductTypeManagement();
+    isExporting,
+    exportProgress,
+    handleExportExcel,
+  } = useProductManagement(productTypes);
 
   const { pageRows: paginatedProductTypes, pagination: productTypePagination } =
     useTablePagination(productTypes, productTypeSearchQuery);
@@ -191,6 +195,9 @@ export default function ProductPage() {
               onSearchChange={setSearchQuery}
               onImportClick={() => setIsImportModalOpen(true)}
               onAddClick={() => setIsAddModalOpen(true)}
+              onExportClick={handleExportExcel}
+              isExporting={isExporting}
+              exportProgress={exportProgress}
             />
 
             <ProductTable
