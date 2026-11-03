@@ -33,6 +33,12 @@ export function useHandleScanBarcode({
         return;
       }
 
+      if (!isProductIdExist.canCollectPoints) {
+        Alert.error("สินค้านี้ไม่ร่วมรายการสะสมแต้ม");
+        onCloseScanner();
+        return;
+      }
+
       onAddProduct({
         id: productId,
         points: isProductIdExist.point * (productScoreOption?.score ?? DEFAULT_PRODUCT_SCORE),

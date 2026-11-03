@@ -1,4 +1,5 @@
 import BottomNav from "@/components/bottom-nav";
+import SupabaseSessionSync from "@/components/SupabaseSessionSync";
 import { MyAlert } from "@/components/ui/alert-message-dialog";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased max-h-screen`}
       >
+        <SupabaseSessionSync />
         <MyAlert />
         <Toaster position="top-right" />
         {children}

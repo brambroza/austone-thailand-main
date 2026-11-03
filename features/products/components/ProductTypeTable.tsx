@@ -32,13 +32,14 @@ export default function ProductTypeTable({
           <TableRow>
             <TableHead>รหัส</TableHead>
             <TableHead>ชื่อประเภทสินค้า</TableHead>
+            <TableHead>สะสมแต้ม</TableHead>
             <TableHead className="text-right">จัดการ</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {productTypes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className="text-center py-6 text-gray-500">
+              <TableCell colSpan={4} className="text-center py-6 text-gray-500">
                 ไม่พบข้อมูลประเภทสินค้า
               </TableCell>
             </TableRow>
@@ -47,6 +48,17 @@ export default function ProductTypeTable({
               <TableRow key={productType.id}>
                 <TableCell>{productType.id}</TableCell>
                 <TableCell>{productType.title}</TableCell>
+                <TableCell>
+                  {productType.can_collect_points === false ? (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                      ปิดสะสมแต้ม
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      สะสมได้
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right space-x-1">
                   <Button
                     variant="ghost"

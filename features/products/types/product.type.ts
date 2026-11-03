@@ -5,6 +5,8 @@ export const ProductTypeSchema = z.object({
   title: z
     .string({ required_error: "กรุณาระบุชื่อประเภทสินค้า" })
     .min(1, { message: "ชื่อประเภทสินค้าไม่สามารถเป็นค่าว่างได้" }),
+  // false = สแกนสะสมแต้มไม่ได้ ไม่มีค่าถือว่าสะสมได้
+  can_collect_points: z.boolean().optional(),
 });
 
 export type ProductType = z.infer<typeof ProductTypeSchema>;

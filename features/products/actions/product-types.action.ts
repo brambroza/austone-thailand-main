@@ -1,11 +1,18 @@
 "use server";
 
+import { requireAdminSession } from "@/lib/route-auth";
 import { supabaseAdminClient } from "@/lib/supabase";
 import { ServerActionResponse } from "@/models/api.model";
-import { ProductType, ProductTypePromotion } from "../types/product.type";
+import {
+  ProductType,
+  ProductTypePromotion,
+  ProductTypeSchema,
+} from "../types/product.type";
 
 const PRODUCT_TYPE_TABLE = "product_types";
 const PRODUCT_TYPE_PROMOTION_TABLE = "product_types_promotions";
+// ทีมงานที่เข้าหน้าจัดการสินค้าได้
+const PRODUCT_TYPE_EDIT_ROLES = ["ADMIN", "BILL_MANAGEMENT"];
 
 
 export async function getAllProductTypesAction(): Promise<
@@ -83,9 +90,16 @@ export const createProductType = async (
   productType: Omit<ProductType, "id">
 ): Promise<ServerActionResponse<ProductType>> => {
   try {
+    await requireAdminSession(PRODUCT_TYPE_EDIT_ROLES);
+
+    const input = ProductTypeSchema.omit({ id: true }).parse(productType);
+
     const { data, error } = await supabaseAdminClient
       .from(PRODUCT_TYPE_TABLE)
-      .insert(productType)
+      .insert({
+        title: input.title.trim(),
+        can_collect_points: input.can_collect_points ?? true,
+      })
       .select()
       .single();
 
@@ -110,10 +124,20 @@ export const updateProductType = async (
   productType: ProductType
 ): Promise<ServerActionResponse<ProductType>> => {
   try {
+    await requireAdminSession(PRODUCT_TYPE_EDIT_ROLES);
+
+    const input = ProductTypeSchema.parse(productType);
+
     const { data, error } = await supabaseAdminClient
       .from(PRODUCT_TYPE_TABLE)
-      .update({ title: productType.title })
-      .eq("id", productType.id)
+      .update({
+        title: input.title.trim(),
+        // ไม่ส่งค่ามา = ไม่เปลี่ยนการตั้งค่าเดิม
+        ...(input.can_collect_points === undefined
+          ? {}
+          : { can_collect_points: input.can_collect_points }),
+      })
+      .eq("id", input.id)
       .select()
       .single();
 

@@ -58,11 +58,17 @@ export function useProductTypeManagement() {
   };
  */
 
-  const handleAddProductType = async (title: string) => {
+  const handleAddProductType = async (
+    title: string,
+    canCollectPoints = true
+  ) => {
     try {
       setIsProcessing(true);
 
-      const result = await createProductType({ title });
+      const result = await createProductType({
+        title,
+        can_collect_points: canCollectPoints,
+      });
       const { isError, error, data } =
         SafeActionUtil.getData<ServerActionResponse<ProductType>>(result);
 

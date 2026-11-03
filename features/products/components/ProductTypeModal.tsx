@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ProductType, ProductTypePromotion } from "../types/product.type";
 import { useState, useEffect } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
 
 type ProductTypePayload =
-  | { id: number; title: string }
-  | { title: string };
+  | { id: number; title: string; can_collect_points: boolean }
+  | { title: string; can_collect_points: boolean };
 
 type SavePayload = {
   productType: ProductTypePayload;
@@ -64,6 +65,7 @@ export default function ProductTypeModal({
   productTypePromotions,
 }: ProductTypeModalProps) {
   const [title, setTitle] = useState("");
+  const [canCollectPoints, setCanCollectPoints] = useState(true);
   const isEditing = !!productType;
 
   const datapromotions = productTypePromotions?.filter((e) => e.product_type_id === productType?.id) ?? [];
@@ -75,6 +77,7 @@ export default function ProductTypeModal({
   useEffect(() => {
     if (productType) setTitle(productType.title);
     else setTitle("");
+    setCanCollectPoints(productType?.can_collect_points ?? true);
 
     // เปิด modal แล้วให้มี 1 row เริ่มต้นเสมอ (จะได้ไม่ว่าง)
     /* if (isOpen) {
@@ -131,8 +134,8 @@ export default function ProductTypeModal({
     try {
       const success = await onSave({
         productType: isEditing
-          ? { id: Number(productType!.id), title }
-          : { title },
+          ? { id: Number(productType!.id), title, can_collect_points: canCollectPoints }
+          : { title, can_collect_points: canCollectPoints },
         promotions,
       });
 
@@ -181,6 +184,21 @@ export default function ProductTypeModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="กรอกชื่อประเภทสินค้า"
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+            <div className="space-y-1">
+              <Label htmlFor="can-collect-points">สแกนสะสมแต้มได้</Label>
+              <p className="text-xs text-muted-foreground">
+                ปิดไว้ ลูกค้าจะสแกนสินค้าประเภทนี้เพื่อสะสมแต้มไม่ได้ แต้มที่สะสมไปแล้วยังอยู่ครบ
+              </p>
+            </div>
+            <Switch
+              id="can-collect-points"
+              checked={canCollectPoints}
+              onCheckedChange={setCanCollectPoints}
               disabled={isProcessing}
             />
           </div>

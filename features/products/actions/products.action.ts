@@ -9,6 +9,7 @@ import {
   ProductWithProductType,
 } from "@/models/product.model";
 import { translateProductActionErrorMessage } from "../helpers/product-action.helper";
+import { findNotCollectableProductIds } from "../helpers/product-point-eligibility";
 const PRODUCT_TABLE = "products";
 const View_Product_point = "view_products_with_point";
 const PRODUCT_IMPORT_ROLES = ["ADMIN", "BILL_MANAGEMENT"];
@@ -224,6 +225,7 @@ export const createProduct = async (
 type ProductExistResult = {
   exists: boolean;
   point: number; // ถ้าไม่เจอ product หรือไม่มี promo -> 1
+  canCollectPoints: boolean; // ประเภทสินค้าถูกปิดการสะสมแต้มหรือไม่
 };
 
 export async function doesProductIdExistAction(
@@ -250,11 +252,15 @@ export async function doesProductIdExistAction(
 
     if (error) throw new Error(error.message);
 
-    const exists = !!matchedProducts;
+    if (!matchedProducts || matchedProducts.length === 0) {
+      return { data: null, error: "", isError: false };
+    }
+
     const point = Number(matchedProducts[0].point ?? 1);
+    const notCollectable = await findNotCollectableProductIds([productId]);
 
     return {
-      data: { exists, point },
+      data: { exists: true, point, canCollectPoints: notCollectable.length === 0 },
       error: "",
       isError: false,
     };

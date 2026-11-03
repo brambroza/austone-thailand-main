@@ -4,6 +4,7 @@ import { ServiceResponse } from "@/models/api.model";
 import { User } from "@supabase/supabase-js";
 import { signOutLineUser } from "@/actions/auth.action";
 import { initUser } from "@/actions/queries/users.action";
+import { writeSupabaseAccessTokenCookie } from "@/lib/utils/supabase-cookie.util";
 
 export async function signInWithEmailAndPassword(
   email: string,
@@ -15,7 +16,7 @@ export async function signInWithEmailAndPassword(
   });
 
   if (data.session?.access_token) {
-    document.cookie = `supabase_access_token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    writeSupabaseAccessTokenCookie(data.session.access_token);
   }
   return {
     data: data?.user,
@@ -94,7 +95,7 @@ export async function getSupabaseCurrentUser(): Promise<User | null> {
 export async function signOut() {
   await signOutLineUser();
 
-  document.cookie = "supabase_access_token=; path=/; max-age=0";
+  writeSupabaseAccessTokenCookie(null);
 
   await supabaseAnonClient.auth.signOut();
 }

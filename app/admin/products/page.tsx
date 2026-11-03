@@ -21,8 +21,8 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert-message-dialog";
 
 type ProductTypePayload =
-  | { id: number; title: string }
-  | { title: string };
+  | { id: number; title: string; can_collect_points: boolean }
+  | { title: string; can_collect_points: boolean };
 
 type SavePayload = {
   productType: ProductTypePayload;
@@ -90,7 +90,10 @@ export default function ProductPage() {
     // 1) Save product type (add/update)
     const res = "id" in productType
       ? await handleUpdateProductType(productType as ProductType)
-      : await handleAddProductType(productType.title);
+      : await handleAddProductType(
+          productType.title,
+          productType.can_collect_points
+        );
 
 /*     console.log("promotions?.length", promotions?.length);
     console.log("res?.length", res); */

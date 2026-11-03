@@ -1,5 +1,9 @@
 "use server";
 
+import {
+  NOT_COLLECTABLE_MESSAGE,
+  findNotCollectableProductIds,
+} from "@/features/products/helpers/product-point-eligibility";
 import { requireAdminSession } from "@/lib/route-auth";
 import { supabaseAdminClient } from "@/lib/supabase";
 import { getFutureDate, getThaiDatetime } from "@/lib/utils/date.util";
@@ -36,6 +40,30 @@ export const isBarcodeAlreadyScannedAction = async ({
 export const insertScannedBarcodes = async (
   scannedBarcodes: Partial<Omit<ScannedBarcode, "id" | "created_date">>[]
 ): Promise<ServerActionResponse<null>> => {
+  // ตรวจซ้ำฝั่ง server เพราะหน้าลูกค้าเรียก action นี้ตรงได้โดยไม่ผ่านการสแกน
+  try {
+    const notCollectable = await findNotCollectableProductIds(
+      scannedBarcodes.map((sb) => sb.product_id ?? "")
+    );
+
+    if (notCollectable.length > 0) {
+      return {
+        data: null,
+        isError: true,
+        error: `${NOT_COLLECTABLE_MESSAGE}: ${notCollectable.join(", ")}`,
+      };
+    }
+  } catch (error: any) {
+    console.error(
+      `[ERROR] : ล้มเหลวระหว่างตรวจสิทธิ์สะสมแต้มของสินค้า -> ${error.message}`
+    );
+    return {
+      data: null,
+      isError: true,
+      error: "ล้มเหลวระหว่างการเก็บคะแนน user",
+    };
+  }
+
   const expiredDate = getFutureDate(EXPIRED_DATE_YEARS);
 
   const { error } = await supabaseAdminClient.from(TABLE_NAME).insert(
