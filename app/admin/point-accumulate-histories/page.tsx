@@ -438,10 +438,8 @@ const PointHistoriesPage = () => {
 
     async function handleExportExcel() {
         // โหลด library ตอนกด export เพราะมีขนาดใหญ่และทำให้หน้าเปิดช้า
-        const [XLSX, { saveAs }] = await Promise.all([
-            import("xlsx"),
-            import("file-saver"),
-        ]);
+        // ไม่ใช้ file-saver: dynamic import ของ CommonJS คืน { default } ทำให้ saveAs เป็น undefined
+        const XLSX = await import("xlsx");
 
         // 1) แปลงข้อมูลเป็น array ของ object (หัวคอลัมน์เป็นภาษาไทย)
         const rows = filteredAndSortedHistories.map((h) => ({
@@ -514,12 +512,7 @@ const PointHistoriesPage = () => {
         XLSX.utils.book_append_sheet(wb, ws, "ประวัติแต้มสะสม");
 
         // 6) เขียนเป็นไฟล์ แล้วดาวน์โหลด
-        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        const blob = new Blob([wbout], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-
-        saveAs(blob, `point-accumuhistories-${period}.xlsx`);
+        XLSX.writeFile(wb, `point-accumuhistories-${period}.xlsx`, { compression: true });
     }
 
 

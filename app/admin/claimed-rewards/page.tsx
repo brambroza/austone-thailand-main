@@ -1,10 +1,12 @@
 "use client";
 
 import { DatePicker } from "@/app/components/ui/date-picker";
+import { Alert } from "@/components/ui/alert-message-dialog";
 import { Button } from "@/components/ui/button";
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { useFetchClaimedRewardHistories } from "@/hooks/fetch-data/useFetchClaimedRewardHistories";
 import { useFetchUserInfo } from "@/hooks/fetch-data/useFetchUserInfo";
+import { format } from "date-fns";
 import { Download } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -47,64 +49,66 @@ export default function ClaimedRewardsPage() {
     return matchesUser && matchesStartDate && matchesEndDate;
   });
 
+  /**
+   * Export ประวัติการแลกของรางวัลตามตัวกรองปัจจุบันเป็นไฟล์ .xlsx
+   * ใช้ XLSX.writeFile ดาวน์โหลดเอง ไม่ใช้ file-saver เพราะ dynamic import
+   * ของ file-saver (CommonJS) คืน { default } เท่านั้น ทำให้ saveAs เป็น undefined
+   */
   async function handleExportExcel() {
-    // โหลด library ตอนกด export เพราะมีขนาดใหญ่และทำให้หน้าเปิดช้า
-    const [XLSX, { saveAs }] = await Promise.all([
-      import("xlsx"),
-      import("file-saver"),
-    ]);
+    try {
+      // โหลด library ตอนกด export เพราะมีขนาดใหญ่และทำให้หน้าเปิดช้า
+      const XLSX = await import("xlsx");
 
-    const rows = (filteredHistories ?? []).map((history) => ({
-      "ชื่อรางวัล": history.rewards.title,
-      "ชื่อผู้แลก": history.users.full_name,
-      "ชื่อร้านค้า": history.users.store_name ?? "ไม่ระบุ",
-      "ชื่อร้านค้าตัวแทนจำหน่าย": history.users.agent_store_name || "ไม่ระบุ",
-      "อีเมล": history.email || "-",
-      "ที่อยู่จัดส่ง": history.shipping_address || "-",
-      "สถานะ": history.status,
-      "วันที่แลก": new Date(history.created_at).toLocaleString("th-TH"),
-    }));
+      const rows = (filteredHistories ?? []).map((history) => ({
+        "ชื่อรางวัล": history.rewards.title,
+        "ชื่อผู้แลก": history.users.full_name,
+        "ชื่อร้านค้า": history.users.store_name ?? "ไม่ระบุ",
+        "ชื่อร้านค้าตัวแทนจำหน่าย": history.users.agent_store_name || "ไม่ระบุ",
+        "อีเมล": history.email || "-",
+        "ที่อยู่จัดส่ง": history.shipping_address || "-",
+        "สถานะ": history.status,
+        "วันที่แลก": new Date(history.created_at).toLocaleString("th-TH"),
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(rows, {
-      header: [
-        "ชื่อรางวัล",
-        "ชื่อผู้แลก",
-        "ชื่อร้านค้า",
-        "ชื่อร้านค้าตัวแทนจำหน่าย",
-        "อีเมล",
-        "ที่อยู่จัดส่ง",
-        "สถานะ",
-        "วันที่แลก",
-      ],
-    });
+      const ws = XLSX.utils.json_to_sheet(rows, {
+        header: [
+          "ชื่อรางวัล",
+          "ชื่อผู้แลก",
+          "ชื่อร้านค้า",
+          "ชื่อร้านค้าตัวแทนจำหน่าย",
+          "อีเมล",
+          "ที่อยู่จัดส่ง",
+          "สถานะ",
+          "วันที่แลก",
+        ],
+      });
 
-    ws["!cols"] = [
-      { wch: 24 },
-      { wch: 20 },
-      { wch: 22 },
-      { wch: 26 },
-      { wch: 24 },
-      { wch: 30 },
-      { wch: 16 },
-      { wch: 20 },
-    ];
+      ws["!cols"] = [
+        { wch: 24 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 26 },
+        { wch: 24 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 20 },
+      ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "ประวัติการแลกของรางวัล");
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "ประวัติการแลกของรางวัล");
 
-    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([wbout], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
+      // ห้ามใช้ toLocaleDateString("th-TH") เพราะได้ "9/11/2569" ซึ่งมี "/" ในชื่อไฟล์
+      const toFileDate = (date: Date) => format(date, "yyyy-MM-dd");
+      const period =
+        startDate && endDate
+          ? `${toFileDate(startDate)}_${toFileDate(endDate)}`
+          : toFileDate(new Date());
 
-    const period =
-      startDate && endDate
-        ? `${startDate.toLocaleDateString("th-TH")}_${endDate.toLocaleDateString(
-            "th-TH"
-          )}`
-        : new Date().toLocaleDateString("th-TH");
-
-    saveAs(blob, `claimed-rewards-${period}.xlsx`);
+      XLSX.writeFile(wb, `claimed-rewards-${period}.xlsx`, { compression: true });
+    } catch (error) {
+      console.error("Export claimed rewards failed", error);
+      Alert.error("Export Excel ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    }
   }
 
   return (
